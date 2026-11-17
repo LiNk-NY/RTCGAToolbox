@@ -35,7 +35,6 @@ Imports:
     rvest,
     S4Vectors,
     stats,
-    stringr,
     SummarizedExperiment,
     TCGAutils,
     utils

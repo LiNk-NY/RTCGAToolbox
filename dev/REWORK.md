@@ -60,7 +60,7 @@ Dead code (no callers): `.getGISTIC`, `.fileSelect`,
 ### Phase 1 — characterisation tests (done)
 
 ### Phase 2 — refactors with no behaviour change
-- [ ] `.findBuild`: replace `stringr::str_extract` with base R; drop `stringr`
+- [x] `.findBuild`: replace `stringr::str_extract` with base R; drop `stringr`
       from Imports.
 - [ ] Factor the Firehose archive patterns into a single table shared by
       `getFirehoseData()` and `getLinks()` (they are duplicated today and

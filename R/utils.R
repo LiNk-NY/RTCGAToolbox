@@ -6,7 +6,6 @@
 #' @importFrom S4Vectors SimpleList metadata metadata<- DataFrame mcols mcols<- splitAsList
 #' @importFrom utils type.convert
 #' @importFrom methods .hasSlot
-#' @importFrom stringr str_extract
 ## Helper functions for data extraction
 .getDataMatrix <- function(object) {
     getElement(object, "DataMatrix")
@@ -87,14 +86,17 @@
     getElement(x, type)
 }
 
-.findBuild <- function(fname, type = "UCSC") {
+.findBuild <- function(fname, type = c("UCSC", "NCBI")) {
+    type <- match.arg(type)
     pattrn <- switch(type, UCSC = "[Hh][Gg][0-9]{2}",
         NCBI = "[Gg][Rr][Cc][Hh][0-9]{2}")
-    bno <- stringr::str_extract(fname, pattrn)
-    if (!length(bno))
-        NA_character_
-    else
-        bno
+    if (!length(fname))
+        return(NA_character_)
+    bno <- rep(NA_character_, length(fname))
+    pos <- regexpr(pattrn, fname)
+    hit <- !is.na(pos) & pos != -1L
+    bno[hit] <- regmatches(fname, pos)
+    bno
 }
 
 .nameClean <- function(x) {
