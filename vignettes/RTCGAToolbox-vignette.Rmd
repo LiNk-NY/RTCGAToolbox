@@ -202,9 +202,11 @@ mutation, clinical data from the Adrenocortical Carcinoma (ACC) study.
 ## Conversion to Bioconductor classes
 
 The `biocExtract` function allows the user to take any downloaded dataset and
-convert it into a standard Bioconductor object. These can either be a
-`SummarizedExperiment`, `RangedSummarizedExperiment`, or `RaggedExperiment`
-based on features of the data. The user must provide the desired data type
+convert it into a standard Bioconductor object. Copy number segments
+(`CNASNP`, `CNVSNP`, `CNASeq`, `CNACGH`) and mutations (`Mutation`) become a
+`RaggedExperiment`; the other data types become a `SummarizedExperiment`
+(`RangedSummarizedExperiment` for GISTIC data). The raw tables remain
+available with `getData`. The user must provide the desired data type
 as input to the function along with the actual `FirehoseData` data object.
 This allows for easy adaptability to other software in the Bioconductor
 ecosystem.

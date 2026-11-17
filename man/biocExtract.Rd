@@ -25,16 +25,25 @@ convert tabular data into Bioconductor object such as
 \code{.makeRaggedExperimentFromDataFrame}}
 }
 \value{
-Either
-\link[SummarizedExperiment:SummarizedExperiment-class]{SummarizedExperiment} or
-\link[RaggedExperiment:RaggedExperiment-class]{RaggedExperiment}.
+A \link[RaggedExperiment:RaggedExperiment-class]{RaggedExperiment}
+for copy number and mutation data (a \code{GRanges} if the table has no sample
+column), a
+\link[SummarizedExperiment:SummarizedExperiment-class]{SummarizedExperiment}
+for other data types, a list of these for data types with several
+platforms, or the \code{data.frame} for \code{clinical}.
 }
 \description{
 This function processes data from a
 \link[=FirehoseData-class]{FirehoseData} object. Raw data is
-converted to a conventional Bioconductor object. The function returns either
-\link[SummarizedExperiment:SummarizedExperiment-class]{SummarizedExperiment}
-or \link[RaggedExperiment:RaggedExperiment-class]{RaggedExperiment}. In cases
+converted to a conventional Bioconductor object. Copy number segments
+(\code{CNASNP}, \code{CNVSNP}, \code{CNASeq}, \code{CNACGH}) and mutations (\code{Mutation}) are
+always returned as a
+\link[RaggedExperiment:RaggedExperiment-class]{RaggedExperiment}, whatever the
+number of samples; use \code{\link[RaggedExperiment:compactAssay]{RaggedExperiment::compactAssay()}} to get a matrix
+when all samples share the same ranges. The other data types are returned
+as a
+\link[SummarizedExperiment:SummarizedExperiment-class]{SummarizedExperiment}.
+The raw tables are available with \code{\link[=getData]{getData()}}. In cases
 where there are multiple platforms in a data type, an attempt to consolidate
 datasets will be made based on matching dimension names. For ranged data,
 this functionality is provided with more control as part of the

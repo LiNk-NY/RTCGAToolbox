@@ -6,9 +6,15 @@ NULL
 #'
 #' This function processes data from a
 #' [FirehoseData][FirehoseData-class] object. Raw data is
-#' converted to a conventional Bioconductor object. The function returns either
-#' [SummarizedExperiment][SummarizedExperiment::SummarizedExperiment-class]
-#' or [RaggedExperiment][RaggedExperiment::RaggedExperiment-class]. In cases
+#' converted to a conventional Bioconductor object. Copy number segments
+#' (`CNASNP`, `CNVSNP`, `CNASeq`, `CNACGH`) and mutations (`Mutation`) are
+#' always returned as a
+#' [RaggedExperiment][RaggedExperiment::RaggedExperiment-class], whatever the
+#' number of samples; use [RaggedExperiment::compactAssay()] to get a matrix
+#' when all samples share the same ranges. The other data types are returned
+#' as a
+#' [SummarizedExperiment][SummarizedExperiment::SummarizedExperiment-class].
+#' The raw tables are available with [getData()]. In cases
 #' where there are multiple platforms in a data type, an attempt to consolidate
 #' datasets will be made based on matching dimension names. For ranged data,
 #' this functionality is provided with more control as part of the
@@ -51,9 +57,12 @@ NULL
 #' `.makeRangedSummarizedExperimentFromDataFrame` or
 #' `.makeRaggedExperimentFromDataFrame`
 #'
-#' @return Either
-#' [SummarizedExperiment][SummarizedExperiment::SummarizedExperiment-class] or
-#' [RaggedExperiment][RaggedExperiment::RaggedExperiment-class].
+#' @return A [RaggedExperiment][RaggedExperiment::RaggedExperiment-class]
+#' for copy number and mutation data (a `GRanges` if the table has no sample
+#' column), a
+#' [SummarizedExperiment][SummarizedExperiment::SummarizedExperiment-class]
+#' for other data types, a list of these for data types with several
+#' platforms, or the `data.frame` for `clinical`.
 #'
 #' @author Marcel Ramos \email{marcel.ramos@@sph.cuny.edu}
 #'
@@ -133,8 +142,12 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
     if (hasRanged) {
         ## getFirehoseData() only downloads the '*_hg19__seg' SNP6 archives
         hg19seg <- fromShell && type %in% c("CNASNP", "CNVSNP")
+        ## segments and mutations are always RaggedExperiment (BUG-11)
+        ragged <- type %in% c("CNASNP", "CNVSNP", "CNASeq", "CNACGH",
+            "Mutation")
         object <- .convertRangeBioc(object,
-            defaultBuild = if (hg19seg) "hg19" else NA_character_)
+            defaultBuild = if (hg19seg) "hg19" else NA_character_,
+            ragged = ragged)
     } else {
         object <- .standardizeBC(object)
         metadat <- if (is(object, "Annotated")) metadata(object) else list()
@@ -151,13 +164,17 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
     return(object)
 }
 
-## 'defaultBuild' is used when the data have no NCBI_Build column
-.convertRangeBioc <- function(object, defaultBuild = NA_character_, ...) {
+## 'defaultBuild' is used when the data have no NCBI_Build column.
+## With 'ragged = TRUE', data with a sample column always become a
+## RaggedExperiment; otherwise identical ranges across samples give a
+## RangedSummarizedExperiment (cBioPortalData relies on this default).
+.convertRangeBioc <- function(object, defaultBuild = NA_character_,
+    ragged = FALSE, ...) {
     build <- unique(.getBuild(object))
     if (all(is.na(build)))
         build <- defaultBuild
     build <- TCGAutils::correctBuild(build, "NCBI")
-    if (.hasConsistentRanges(object)) {
+    if (!ragged && .hasConsistentRanges(object)) {
         object <- .makeRangedSummarizedExperimentFromDataFrame(object,
             build = build, ...)
     } else {

@@ -65,35 +65,53 @@ test_that("Methylation: beta values numeric, probe ids rows, annotation rowData"
     expect_identical(rowData(se)[["Gene_Symbol"]], raw[["Gene_Symbol"]])
 })
 
-test_that("CNASNP/CNVSNP (single sample) become RangedSummarizedExperiment", {
+test_that("CNASNP/CNVSNP (single sample) become a RaggedExperiment", {
+    ## BUG-11: one sample used to give a RangedSummarizedExperiment
     for (type in c("CNASNP", "CNVSNP")) {
         raw <- slot(accmini, type)
-        rse <- quiet(biocExtract(accmini, type))
-        expect_s4_class(rse, "RangedSummarizedExperiment")
-        expect_identical(colnames(rse), unique(raw[["Sample"]]), info = type)
-        expect_identical(assayNames(rse), c("Num_Probes", "Segment_Mean"))
-        expect_identical(unname(assay(rse, "Segment_Mean")[, 1L]),
+        re <- quiet(biocExtract(accmini, type))
+        expect_s4_class(re, "RaggedExperiment")
+        expect_identical(colnames(re), unique(raw[["Sample"]]), info = type)
+        expect_identical(assayNames(re), c("Num_Probes", "Segment_Mean"))
+        expect_identical(unname(assay(re, "Segment_Mean")[, 1L]),
             raw[["Segment_Mean"]], info = type)
-        expect_identical(unname(assay(rse, "Num_Probes")[, 1L]),
+        expect_identical(unname(assay(re, "Num_Probes")[, 1L]),
             raw[["Num_Probes"]], info = type)
-        expect_identical(start(rse), as.integer(raw[["Start"]]), info = type)
-        expect_identical(end(rse), as.integer(raw[["End"]]), info = type)
-        expect_identical(as.character(seqnames(rse)),
+        gr <- rowRanges(re)
+        expect_identical(start(gr), as.integer(raw[["Start"]]), info = type)
+        expect_identical(end(gr), as.integer(raw[["End"]]), info = type)
+        expect_identical(as.character(seqnames(gr)),
             as.character(raw[["Chromosome"]]), info = type)
         ## BUG-17: the SNP6 segment archives are hg19 (seqnames '1', '2', ...)
-        expect_identical(unique(unname(genome(rse))), "GRCh37", info = type)
+        expect_identical(unique(unname(genome(re))), "GRCh37", info = type)
     }
 })
 
 test_that("the hg19 default applies only to CNASNP/CNVSNP from FirehoseData", {
     ## the same table outside a FirehoseData object has no known build
-    rse <- quiet(biocExtract(accmini@CNASNP, "CNASNP"))
-    expect_true(all(is.na(genome(rse))))
+    re <- quiet(biocExtract(accmini@CNASNP, "CNASNP"))
+    expect_true(all(is.na(genome(re))))
     ## an NCBI_Build column takes precedence over the default
     x <- accmini
     x@CNASNP[["NCBI_Build"]] <- "36"
-    rse <- quiet(biocExtract(x, "CNASNP"))
-    expect_identical(unique(unname(genome(rse))), "NCBI36")
+    re <- quiet(biocExtract(x, "CNASNP"))
+    expect_identical(unique(unname(genome(re))), "NCBI36")
+})
+
+test_that("segments with identical ranges across samples stay ragged", {
+    seg <- data.frame(
+        Sample = rep(c("TCGA-A1-0001-01A", "TCGA-A1-0002-01A"), each = 2L),
+        Chromosome = 1, Start = c(1, 100, 1, 100), End = c(50, 200, 50, 200),
+        Num_Probes = 1:4, Segment_Mean = c(0.1, 0.2, 0.3, 0.4))
+    for (type in c("CNASNP", "CNVSNP", "CNASeq", "CNACGH")) {
+        re <- quiet(biocExtract(seg, type))
+        expect_s4_class(re, "RaggedExperiment")
+        expect_identical(dim(re), c(4L, 2L), info = type)
+        ## compactAssay() recovers the matrix form, values in place
+        ca <- compactAssay(re, "Segment_Mean")
+        expect_identical(unname(ca), matrix(c(0.1, 0.2, 0.3, 0.4), 2L),
+            info = type)
+    }
 })
 
 test_that("multi-sample segments become a RaggedExperiment", {
@@ -109,17 +127,18 @@ test_that("multi-sample segments become a RaggedExperiment", {
     expect_identical(unname(sm[, "TCGA-A1-0002-01A"]), c(NA, NA, 0.1))
 })
 
-test_that("[BUG-11] single-sample Mutation becomes an RSE with MAF columns as assays", {
+test_that("single-sample Mutation becomes a RaggedExperiment", {
+    ## BUG-11: used to be an RSE with every MAF column as an assay
     raw <- accmini@Mutation
-    rse <- quiet(biocExtract(accmini, "Mutation"))
-    expect_s4_class(rse, "RangedSummarizedExperiment")
-    expect_identical(colnames(rse), unique(raw[["Tumor_Sample_Barcode"]]))
-    expect_identical(unname(genome(rse)), "GRCh37")
-    expect_identical(unname(assay(rse, "Hugo_Symbol")[, 1L]),
+    re <- quiet(biocExtract(accmini, "Mutation"))
+    expect_s4_class(re, "RaggedExperiment")
+    expect_identical(colnames(re), unique(raw[["Tumor_Sample_Barcode"]]))
+    expect_identical(unique(unname(genome(re))), "GRCh37")
+    expect_identical(unname(assay(re, "Hugo_Symbol")[, 1L]),
         raw[["Hugo_Symbol"]])
-    expect_identical(start(rse), as.integer(raw[["Start_position"]]))
-    expect_identical(as.character(strand(rse)), raw[["Strand"]])
-    expect_length(assayNames(rse), 47L)
+    gr <- rowRanges(re)
+    expect_identical(start(gr), as.integer(raw[["Start_position"]]))
+    expect_identical(as.character(strand(gr)), raw[["Strand"]])
 })
 
 test_that("multi-sample MAF becomes a RaggedExperiment with GRCh37", {

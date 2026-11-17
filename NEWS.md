@@ -13,6 +13,13 @@ row names and the `Composite Element REF` column changed. Code that looks
 patients up by the old names can use `toupper(gsub(".", "-", x, fixed =
 TRUE))` to convert them.
 
+* `biocExtract()` now always returns a `RaggedExperiment` for copy number
+(`CNASNP`, `CNVSNP`, `CNASeq`, `CNACGH`) and mutation (`Mutation`) data.
+Previously the class depended on the data: a single sample, or samples
+sharing the same ranges, gave a `RangedSummarizedExperiment` instead. Use
+`RaggedExperiment::compactAssay()` for a matrix when the ranges are shared.
+`getFirehoseData()` and `getData()` still return these data as tables.
+
 ### Bug fixes and minor improvements
 
 * `biocExtract()` now aligns rows by name when it combines array files

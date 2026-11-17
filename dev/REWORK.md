@@ -42,7 +42,7 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-24 | R | `.makeRangedSummarizedExperimentFromDataFrame` | Segments with identical ranges and a single value column error (`invalid 'length' argument`). |
 | BUG-17 | M | `biocExtract(CNASNP/CNVSNP)` | Data are hg19 (from the file name) but no genome is recorded on the ranges. |
 | BUG-10 | M | `getGISTICPeaks`, Peaks SE | The empty trailing column (`V100`/`V12`, values `""`) survives the all-NA filter; Peaks SE row names are leftover data.frame indices instead of peak names. |
-| BUG-11 | M | `biocExtract` on segment/MAF data | Output class depends on the data: one sample (or identical ranges) -> RSE, otherwise RaggedExperiment. For single-sample MAFs, all 47 MAF columns become (character) assays. |
+| BUG-11 | M | `biocExtract` on segment/MAF data | Output class depends on the data: one sample (or identical ranges) -> RSE, otherwise RaggedExperiment. For single-sample MAFs, all 47 MAF columns become (character) assays. Fixed (decision): `biocExtract()` always gives a RaggedExperiment for CN/Mutation types; getters stay tabular; `.convertRangeBioc(ragged = FALSE)` default kept for cBioPortalData. |
 | BUG-07 | M | `getFirehoseData` | `gistic2Date` check uses `&&`: any single string (e.g. `"20991231"`) passes. |
 | BUG-09 | M | `getFirehoseData(clinical)` | Header row leaks in as a constant `Composite Element REF` = `"value"` column (fixed); patient ids are now standard barcodes (`TCGA-OR-A5J1`); `updateObject()` converts old objects and `accmini` was regenerated (decision: follow other software). |
 | BUG-20 | D | `getFirehoseData(Mutation)` | `merge()` of per-sample MAFs with different columns is a join on all shared columns: rows are re-sorted, and rows identical in the shared columns are collapsed with values copied between them (3 rows -> 2 in the test). Fixed: row union via `rbindlist(fill = TRUE)`. |
@@ -104,6 +104,7 @@ alignment).
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [ ] Remove dead internals.
 - [ ] Deprecate `getUUIDs` (BUG-15).
-- [ ] Decide BUG-08 and BUG-11 (consistent return classes).
+- [ ] Decide BUG-08 (MSKCC CGH archives).
+- [x] BUG-11: RaggedExperiment from biocExtract for CN/Mutation.
 
 ### Phase 5 — decompose `getFirehoseData()` into per-type readers

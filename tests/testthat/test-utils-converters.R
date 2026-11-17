@@ -111,7 +111,7 @@ test_that("identical ranges with a single value column give an RSE", {
     expect_identical(assayNames(rse), "Segment_Mean")
     expect_identical(assay(rse), matrix(c(0.1, 0.2, 0.3, 0.4), 2,
         dimnames = list(NULL, c("TCGA-A1-0001-01A", "TCGA-A1-0002-01A"))))
-    expect_identical(quiet(biocExtract(df, "CNASNP")), rse)
+    expect_identical(quiet(ns$.convertRangeBioc(df)), rse)
 })
 
 test_that("samples listing the same ranges in a different order are aligned", {
@@ -119,7 +119,7 @@ test_that("samples listing the same ranges in a different order are aligned", {
     df <- consistent_df()
     df[3:4, ] <- df[4:3, ]
     expect_identical(df[["Start"]], c(1, 100, 100, 1))
-    rse <- quiet(biocExtract(df, "CNASNP"))
+    rse <- quiet(ns$.convertRangeBioc(df))
     expect_identical(start(rse), c(1L, 100L))
     expect_identical(unname(assay(rse, "Segment_Mean")),
         matrix(c(0.1, 0.2, 0.3, 0.4), 2))
@@ -134,7 +134,7 @@ test_that("rows with missing ranges are dropped from values too", {
             End = NA, Num_Probes = 99, Segment_Mean = 9.9),
         consistent_df()[3:4, ])
     expect_true(ns$.hasConsistentRanges(df))
-    rse <- quiet(biocExtract(df, "CNASNP"))
+    rse <- quiet(ns$.convertRangeBioc(df))
     expect_identical(unname(assay(rse, "Segment_Mean")),
         matrix(c(0.1, 0.2, 0.3, 0.4), 2))
 })
@@ -143,9 +143,28 @@ test_that("repeated ranges within a sample are not forced into an RSE", {
     df <- consistent_df()
     df[["Start"]] <- 1; df[["End"]] <- 50
     expect_false(ns$.hasConsistentRanges(df))
-    expect_s4_class(quiet(biocExtract(df, "CNASNP")), "RaggedExperiment")
+    expect_s4_class(quiet(ns$.convertRangeBioc(df)), "RaggedExperiment")
     ## a single sample with repeated ranges is still consistent
     expect_true(ns$.hasConsistentRanges(df[1:2, ]))
+})
+
+test_that(".convertRangeBioc(ragged = TRUE) always gives a RaggedExperiment", {
+    ## cBioPortalData relies on the default (RSE for identical ranges)
+    df <- consistent_df()
+    expect_s4_class(quiet(ns$.convertRangeBioc(df)),
+        "RangedSummarizedExperiment")
+    re <- quiet(ns$.convertRangeBioc(df, defaultBuild = "hg19",
+        ragged = TRUE))
+    expect_s4_class(re, "RaggedExperiment")
+    expect_identical(colnames(re), c("TCGA-A1-0001-01A", "TCGA-A1-0002-01A"))
+    expect_identical(unique(unname(genome(re))), "GRCh37")
+    sm <- assay(re, "Segment_Mean")
+    expect_identical(unname(sm), matrix(c(0.1, 0.2, NA, NA, NA, NA, 0.3, 0.4),
+        4L))
+    expect_identical(start(rowRanges(re)), c(1L, 100L, 1L, 100L))
+    ## without a sample column the result is a GRanges either way
+    expect_s4_class(quiet(ns$.convertRangeBioc(seg_df()[, -1L],
+        ragged = TRUE)), "GRanges")
 })
 
 test_that(".hasConsistentRanges is FALSE when samples have different ranges", {
