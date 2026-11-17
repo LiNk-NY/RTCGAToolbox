@@ -72,17 +72,17 @@ test_that("each data type downloads exactly its archive (no decoys)", {
     expect_setequal(list.files(dest), c(
         "20160128-ACC-Clinical.txt",
         "20160128-ACC-RNAseq2Gene.txt",
-        "20160128-ACC-RNAseq2GeneNorm-normalized_counts-1.txt",
+        "20160128-ACC-RNAseq2GeneNorm-normalized_counts-illuminahiseq_rnaseqv2__unc_edu.txt",
         "20160128-ACC-read_count-miRNAseqGene.txt",
         "20160128-ACC-CNASNPHg19.txt",
         "20160128-ACC-CNVSNPHg19.txt",
         "20160128-ACC-CNAseq.txt",
         "20160128-ACC-CNACGH-cgh_1x1m_g4447a__mskcc_org.txt",
         "20160128-ACC-CNACGH-hg_cgh_415k_g4124a__hms_harvard_edu.txt",
-        "20160128-ACC-Methylation-1.txt",
-        "20160128-ACC-mRNAArray-1.txt",
-        "20160128-ACC-miRNAArray-1.txt",
-        "20160128-ACC-RPPAArray-1.txt",
+        "20160128-ACC-Methylation-humanmethylation450__jhu_usc_edu.txt",
+        "20160128-ACC-mRNAArray-agilentg4502a_07_3__unc_edu.txt",
+        "20160128-ACC-miRNAArray-h_mirna_8x15k__unc_edu.txt",
+        "20160128-ACC-RPPAArray-mda_rppa_core__mdanderson_org.txt",
         "20160128-ACC-Mutations-AllSamples.txt",
         "20160128-ACC-all_data_by_genes.txt",
         "20160128-ACC-all_thresholded.by_genes.txt",
@@ -293,9 +293,68 @@ test_that("CNACGH cache files are named by platform, not position", {
     y <- fetch("CNACGH", dest)
     expect_length(cnt$downloads, 2L)
     expect_identical(y@CNACGH, x@CNACGH)
-    expect_identical(ns$.cghPlatformKey(x@CNACGH[[2L]]@Filename),
+    expect_identical(ns$.archiveKey(x@CNACGH[[2L]]@Filename),
         "hg_cgh_415k_g4124a__hms_harvard_edu")
-    expect_error(ns$.cghPlatformKey("foo.tar.gz"), "Not a CNACGH archive")
+})
+
+test_that("list-slot cache files are named by archive, not position", {
+    ## BUG-30: with '<type>-<n>.txt', an archive skipped by fileSizeLimit
+    ## shifted the positions, so a later call with a larger limit read one
+    ## platform's cached file under another platform's archive name.
+    ## Here the (large) Agilent archive is listed before the U133A one.
+    fh2 <- build_fake_firehose()
+    u133file <- stats::setNames(
+        list(sub("-0.5", "7.5", fx_mrnaarray, fixed = TRUE)),
+        "ACC.transcriptome__ht_hg_u133a__broad_mit_edu__Level_3__gene_rma__data.data.txt")
+    u133 <- make_fh_tarball(fh2$std, paste0(FH_PREFIX,
+        "Merge_transcriptome__ht_hg_u133a__broad_mit_edu__Level_3__gene_rma__data",
+        FH_SUFFIX), u133file)
+    fh2$std_listing <- c(fh2$std_listing, u133)
+    cnt <- local_fake_firehose(fh2)
+    local_mocked_bindings(.checkFileSize = function(dataURL, fileSizeLimit)
+        !grepl("agilentg4502a", dataURL) || fileSizeLimit > 1000)
+    dest <- withr::local_tempdir()
+    ## default limit: Agilent skipped, U133A downloaded
+    x <- fetch("mRNAArray", dest)
+    expect_length(x@mRNAArray, 1L)
+    expect_match(x@mRNAArray[[1L]]@Filename, "ht_hg_u133a")
+    expect_identical(x@mRNAArray[[1L]]@DataMatrix["A1BG", ],
+        setNames(c(7.5, 0.25), BC[1:2]))
+    ## larger limit: Agilent is downloaded, not read from U133A's cache
+    y <- fetch("mRNAArray", dest, fileSizeLimit = 2000)
+    expect_length(y@mRNAArray, 2L)
+    expect_match(y@mRNAArray[[1L]]@Filename, "agilentg4502a_07_3")
+    expect_identical(y@mRNAArray[[1L]]@DataMatrix["A1BG", ],
+        setNames(c(-0.5, 0.25), BC[1:2]))
+    expect_identical(y@mRNAArray[[2L]], x@mRNAArray[[1L]])
+    ## U133A came from its cache file the second time
+    expect_identical(basename(cnt$downloads), basename(c(u133,
+        grep("agilentg4502a", fh2$std_listing, value = TRUE)[1L])))
+    expect_identical(sort(list.files(dest)), c(
+        "20160128-ACC-mRNAArray-agilentg4502a_07_3__unc_edu.txt",
+        "20160128-ACC-mRNAArray-ht_hg_u133a__broad_mit_edu.txt"))
+})
+
+test_that(".archiveKey and .cacheName name cache files by archive", {
+    fn <- function(x) paste0("gdac.broadinstitute.org_ACC.", x,
+        ".Level_3.2016012800.0.0.tar.gz")
+    expect_identical(ns$.archiveKey(fn(paste0("Merge_protein_exp__",
+        "mda_rppa_core__mdanderson_org__Level_3__protein_normalization__data"))),
+        "mda_rppa_core__mdanderson_org")
+    expect_identical(ns$.archiveKey(paste0("https://x/y/", fn(paste0(
+        "Merge_cna__cgh_1x1m_g4447a__mskcc_org__Level_3__",
+        "segmentation_data_computation__seg")))), "cgh_1x1m_g4447a__mskcc_org")
+    expect_identical(ns$.archiveKey(fn("mRNAseq_Preprocess")),
+        "mRNAseq_Preprocess")
+    expect_error(ns$.archiveKey("foo.tar.gz"), "Unrecognised Firehose archive")
+    a <- fn(c(
+        "Merge_rnaseqv2__illuminaga_rnaseqv2__unc_edu__Level_3__RSEM_genes_normalized__data",
+        "Merge_rnaseqv2__illuminahiseq_rnaseqv2__unc_edu__Level_3__RSEM_genes_normalized__data"))
+    expect_identical(ns$.cacheName("Norm", a[2L], a),
+        "-Norm-illuminahiseq_rnaseqv2__unc_edu.txt")
+    ## two archives that would share a file are an error, not a mix-up
+    expect_error(ns$.cacheName("Norm", a[1L], a[c(1L, 1L)]),
+        "share a cache name")
 })
 
 test_that("miRNASeqGeneType selects the column and the cache file name", {
@@ -316,7 +375,7 @@ test_that("RNAseq2Norm = RSEM_normalized_log2 reads mRNAseq_Preprocess", {
     expect_identical(basename(cnt$downloads),
         "gdac.broadinstitute.org_ACC.mRNAseq_Preprocess.Level_3.2016012800.0.0.tar.gz")
     expect_true(file.exists(file.path(dest,
-        "20160128-ACC-RNAseq2GeneNorm-RSEM_normalized_log2-1.txt")))
+        "20160128-ACC-RNAseq2GeneNorm-RSEM_normalized_log2-mRNAseq_Preprocess.txt")))
     m <- x@RNASeq2GeneNorm[[1L]]@DataMatrix
     expect_identical(colnames(m), PBC)
     ## PARADIGM / Z_Score files (value -999) are not selected

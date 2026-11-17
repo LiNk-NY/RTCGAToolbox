@@ -52,7 +52,7 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-13 | M | `getMutationRate` | Returns `NULL` silently with no mutation data; samples read from column **16** by position; denominator is mutated samples only (undocumented). |
 | BUG-14 | R | `.makeSummarizedExperimentFromDataFrame` | **Not dead**: cBioPortalData calls it via `:::` with a `DataFrame` and `colnames = <sample ids>`, which works. Broken otherwise: the default `colnames = c("Hugo", "Entrez")` treats the annotation columns as samples (assay and rowData swapped), and a plain `data.frame` fails (`metadat` undefined). Fixed: default `colnames = character(0)` (TCGA-prefixed columns), `metadat`/`rowData` always defined, `drop = FALSE` (single-sample matrices failed in cBioPortalData too), row names from the unique annotation column when `names.field` is NULL. cBioPortalData calls checked old vs new: identical except the previously failing single-sample cases. |
 | BUG-15 | — | `.barcodeUUID` / `getUUIDs = TRUE` | Calls `tcga-data.nci.nih.gov`, retired in 2016. Cannot work. Deprecated with `BiocBaseUtils::lifeCycle()` via `.lifeCycleArg()`; `TRUE` warns and is ignored. `.barcodeUUID` is now unreachable (no external users in bioc324-index-20261104); removing it drops RJSONIO and `RCurl::getURL` (`RCurl::url.exists` is still used by `getBroadSubtypes`). |
-| BUG-30 | D | `getFirehoseData` (RNASeq2GeneNorm, Methylation, mRNAArray, miRNAArray, RPPAArray) | Cache files are named by position (`-Methylation-<n>.txt`) counting only archives under `fileSizeLimit`. A later call with a smaller limit, or a changed listing, reads another platform's cached file under the wrong `Filename`. Same fix as CNACGH (BUG-08): name by platform. Open. |
+| BUG-30 | D | `getFirehoseData` (RNASeq2GeneNorm, Methylation, mRNAArray, miRNAArray, RPPAArray) | Cache files are named by position (`-Methylation-<n>.txt`) counting only archives under `fileSizeLimit`. A later call with a smaller limit, or a changed listing, reads another platform's cached file under the wrong `Filename`. Same fix as CNACGH (BUG-08): name by platform. Fixed: `.cacheName()`/`.archiveKey()` name every list-slot and CNACGH cache file by platform and center (`humanmethylation450__jhu_usc_edu`; `mRNAseq_Preprocess` for the preprocessed archive); checked against all 3674 archive names of the 2016-01-28 run, no key collisions within a cohort. Duplicated keys are an error. |
 | BUG-16 | M | `show,FirehoseData` | `dim(Mutation)[2] & dim(Mutation)[2]` typo (should check rows). |
 | BUG-08 | ? | `getFirehoseData(CNACGH)` | Link pattern matches `hg_cgh_244a`/`hg_cgh_415k` (HMS) archives but not MSKCC `cgh_1x1m ... segmentation_data_computation__seg`. Fixed (decision: include): MSKCC `cgh_1x1m_g4447a` (OV, LUSC) and MSKCC `hg_cgh_244a` (GBM, GBMLGG) added; cache files named by platform since positional `CNACGH-<n>.txt` names would map a cached HMS file onto the MSKCC archive once the link list changed. |
 
@@ -106,7 +106,7 @@ alignment).
 - [ ] Remove dead internals.
 - [x] Deprecate `getUUIDs` (BUG-15).
 - [ ] Remove `.barcodeUUID` and the RJSONIO import (after the deprecation cycle).
-- [ ] BUG-30: platform-named cache files for the other list slots.
+- [x] BUG-30: platform-named cache files for the other list slots.
 - [x] BUG-11: RaggedExperiment from biocExtract for CN/Mutation.
 - [x] BUG-08: MSKCC CGH archives included.
 

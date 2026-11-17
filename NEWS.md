@@ -38,6 +38,15 @@ ignored. Use `TCGAutils::barcodeToUUID()` instead; see
 
 ### Bug fixes and minor improvements
 
+* `getFirehoseData()` now names the cached files of the Methylation,
+mRNAArray, miRNAArray, RPPAArray and RNASeq2GeneNorm data types after
+their archive (e.g., `<runDate>-<dataset>-Methylation-humanmethylation450__jhu_usc_edu.txt`)
+instead of numbering them by position. The numbers counted only archives
+under `fileSizeLimit`, so a later call with a larger limit could read one
+platform's cached file under another platform's name (e.g., U133A values
+returned as the Agilent array). Files cached by earlier versions are
+downloaded again.
+
 * Internal converters used by cBioPortalData: ranged data with a
 `names.field` (e.g., mutations) and the same ranges in every sample no
 longer fail with "'names.field' is not found"; the names label the ranges

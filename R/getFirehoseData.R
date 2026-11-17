@@ -93,12 +93,32 @@
 .CGH_ARCHIVE <- paste0("[.]Merge_cna__.*cgh.*__Level_3__",
     "segmentation(_data_computation)?__seg[.]Level_3.*[.]tar[.]gz$")
 
-## 'hg_cgh_415k_g4124a__hms_harvard_edu' from a CNACGH archive name
-.cghPlatformKey <- function(archive) {
-    key <- sub(".*[.]Merge_cna__(.*)__Level_3__.*", "\\1", basename(archive))
-    if (identical(key, basename(archive)))
-        stop("Not a CNACGH archive name: ", archive)
+## Name of the cached file for a Firehose archive. Files are named by
+## archive, never by position in the link list: positions shift with
+## 'fileSizeLimit' (skipped archives) and would map a cached file onto
+## another platform's archive (BUG-08, BUG-30).
+## 'Merge_' archives give platform and center
+## ('humanmethylation450__jhu_usc_edu'); others the archive name between the
+## cohort prefix and the Level suffix ('mRNAseq_Preprocess').
+.archiveKey <- function(archive) {
+    b <- basename(archive)
+    key <- sub("^.*?[.]Merge_[[:alnum:]_]*?__(.+?)__Level_[0-9]__.*$", "\\1",
+        b, perl = TRUE)
+    if (identical(key, b))
+        key <- sub("^gdac[.]broadinstitute[.]org_[^.]+[.](.+?)[.]Level_[0-9][.].*$",
+            "\\1", b, perl = TRUE)
+    if (identical(key, b))
+        stop("Unrecognised Firehose archive name: ", archive)
     key
+}
+
+## 'archives': all archives of the data type; their keys must differ
+.cacheName <- function(type, archive, archives) {
+    keys <- vapply(archives, .archiveKey, character(1L), USE.NAMES = FALSE)
+    if (anyDuplicated(keys))
+        stop("Firehose archives share a cache name: ",
+            paste(unique(keys[duplicated(keys)]), collapse = ", "))
+    paste0("-", type, "-", .archiveKey(archive), ".txt")
 }
 
 #' @importFrom utils setTxtProgressBar
@@ -508,8 +528,8 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
             fileExt = "-RNAseq2GeneNorm.tar.gz",
             searchName = searchName,
             subSearch = TRUE,
-            exportName =
-              paste0("-RNAseq2GeneNorm-", RNAseq2Norm, "-", k, ".txt"),
+            exportName = .cacheName(paste0("RNAseq2GeneNorm-", RNAseq2Norm),
+              i, names(plinks)),
             manifest = FALSE,
             destdir = destdir,
             forceDownload = forceDownload,
@@ -647,7 +667,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
                       "-CNACGH.tar.gz",
                       "[.]cna__.*__Level_3__segmentation(_data_computation)?__seg[.]seg[.]txt$",
                       TRUE,
-                      paste0("-CNACGH-", .cghPlatformKey(i), ".txt"),
+                      .cacheName("CNACGH", i, trim(plinks)),
                       FALSE,destdir,forceDownload,runDate)
           #Get selected type only
           tmpMat = fread(export.file,
@@ -679,7 +699,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
                       "-Methylation.tar.gz",
                       "[.]methylation__.*.__Level_3__within_bioassay_data_set_function__data.data.txt$",
                       TRUE,
-                      paste0("-Methylation-",listCount,".txt"),FALSE,destdir,forceDownload,runDate)
+                      .cacheName("Methylation", ii, trim(plinks)),FALSE,destdir,forceDownload,runDate)
 
           #Get selected type only
           tmpCols <- read.delim(export.file,nrows=1,colClasses="character")
@@ -731,7 +751,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
                       "-mRNAArray.tar.gz",
                       "",
                       TRUE,
-                      paste0("-mRNAArray-",listCount,".txt"),
+                      .cacheName("mRNAArray", ii, trim(plinks)),
                       TRUE,destdir,forceDownload,runDate)
           tmpReturn <- new("FirehosemRNAArray",Filename=ii,
                            DataMatrix=.makeExprMat(export.file,"","mRNAArray",1000,TRUE))
@@ -759,7 +779,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
                       "-miRNAArray.tar.gz",
                       "",
                       TRUE,
-                      paste0("-miRNAArray-",listCount,".txt"),
+                      .cacheName("miRNAArray", ii, trim(plinks)),
                       TRUE,destdir,forceDownload,runDate)
           tmpReturn <- new("FirehosemRNAArray",Filename=ii,
                            DataMatrix=.makeExprMat(export.file,"","miRNAArray",100,TRUE))
@@ -787,7 +807,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
                       "-RPPAArray.tar.gz",
                       "",
                       TRUE,
-                      paste0("-RPPAArray-",listCount,".txt"),
+                      .cacheName("RPPAArray", ii, trim(plinks)),
                       TRUE,destdir,forceDownload,runDate)
           tmpReturn <- new("FirehosemRNAArray",Filename=ii,
                            DataMatrix=.makeExprMat(export.file,"","RPPAArray",100,TRUE))
