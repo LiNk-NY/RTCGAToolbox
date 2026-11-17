@@ -103,13 +103,49 @@ test_that(".makeRangedSummarizedExperimentFromDataFrame for identical ranges", {
     expect_identical(unname(genome(rse)), "hg19")
 })
 
-test_that("[BUG-24] identical ranges with a single value column error", {
+test_that("identical ranges with a single value column give an RSE", {
+    ## BUG-24: this used to error ("invalid 'length' argument")
     df <- consistent_df()[, -5L]
     expect_true(ns$.hasConsistentRanges(df))
-    expect_error(ns$.makeRangedSummarizedExperimentFromDataFrame(df),
-        "invalid 'length' argument")
-    expect_error(quiet(biocExtract(df, "CNASNP")),
-        "invalid 'length' argument")
+    rse <- ns$.makeRangedSummarizedExperimentFromDataFrame(df)
+    expect_identical(assayNames(rse), "Segment_Mean")
+    expect_identical(assay(rse), matrix(c(0.1, 0.2, 0.3, 0.4), 2,
+        dimnames = list(NULL, c("TCGA-A1-0001-01A", "TCGA-A1-0002-01A"))))
+    expect_identical(quiet(biocExtract(df, "CNASNP")), rse)
+})
+
+test_that("samples listing the same ranges in a different order are aligned", {
+    ## BUG-27: values were cbind-ed by row position
+    df <- consistent_df()
+    df[3:4, ] <- df[4:3, ]
+    expect_identical(df[["Start"]], c(1, 100, 100, 1))
+    rse <- quiet(biocExtract(df, "CNASNP"))
+    expect_identical(start(rse), c(1L, 100L))
+    expect_identical(unname(assay(rse, "Segment_Mean")),
+        matrix(c(0.1, 0.2, 0.3, 0.4), 2))
+    expect_identical(unname(assay(rse, "Num_Probes")),
+        matrix(c(5, 6, 7, 8), 2))
+})
+
+test_that("rows with missing ranges are dropped from values too", {
+    ## BUG-27: the ranges dropped the NA row but the values did not
+    df <- rbind(consistent_df()[1:2, ],
+        data.frame(Sample = "TCGA-A1-0002-01A", Chromosome = 1, Start = NA,
+            End = NA, Num_Probes = 99, Segment_Mean = 9.9),
+        consistent_df()[3:4, ])
+    expect_true(ns$.hasConsistentRanges(df))
+    rse <- quiet(biocExtract(df, "CNASNP"))
+    expect_identical(unname(assay(rse, "Segment_Mean")),
+        matrix(c(0.1, 0.2, 0.3, 0.4), 2))
+})
+
+test_that("repeated ranges within a sample are not forced into an RSE", {
+    df <- consistent_df()
+    df[["Start"]] <- 1; df[["End"]] <- 50
+    expect_false(ns$.hasConsistentRanges(df))
+    expect_s4_class(quiet(biocExtract(df, "CNASNP")), "RaggedExperiment")
+    ## a single sample with repeated ranges is still consistent
+    expect_true(ns$.hasConsistentRanges(df[1:2, ]))
 })
 
 test_that(".hasConsistentRanges is FALSE when samples have different ranges", {

@@ -323,6 +323,10 @@
     # then check if all ranges have same values
     if (!uniranges)
         return(FALSE)
+    # repeated ranges within a sample cannot be aligned across samples
+    if (length(grl) > 1L &&
+            any(vapply(grl, function(gr) anyDuplicated(gr) > 0L, logical(1L))))
+        return(FALSE)
     else
         all(vapply(grl[-1L], function(gr)
             S4Vectors::setequal(gr, grl[[1L]]), logical(1L))
@@ -391,6 +395,11 @@
     return(object)
 }
 
+## Build an RSE from segment data in which every sample has the same set of
+## ranges (see .hasConsistentRanges). Each sample's values are aligned to
+## the ranges of the first sample by matching ranges, not by row position.
+## Rows with a missing start or end are dropped from the values as well as
+## from the ranges.
 .makeRangedSummarizedExperimentFromDataFrame <-
     function(df, ..., seqinfo = NULL, starts.in.df.are.0based = FALSE) {
     args <- list(...)
@@ -404,27 +413,31 @@
     metadat <- if (is(df, "DataFrame")) metadata(df) else list()
     split.field <- .findSampleCol(df)
     ansRanges <- .ansRangeNames(df)
+    df <- df[!.missingRanges(df, ansRanges), , drop = FALSE]
     strictRanges <- Filter(function(x) !is.logical(x), ansRanges)
     RangeInfo <- c(strictRanges, list(split.field = split.field))
-    numInfo <- df[, !(names(df) %in% RangeInfo)]
-    numAssays <- ncol(numInfo)
-    nameAssays <- names(numInfo)
-    if (is(df, "DataFrame"))
-        numInfo <- S4Vectors::splitAsList(numInfo, df[[split.field]])
-    else
-        numInfo <- base::split(numInfo, df[[split.field]])
-    countList <- vector(mode = "list", length = numAssays)
-    for (i in seq_len(numAssays)) {
-        countList[[i]] <- do.call(cbind, lapply(numInfo, `[[`, i))
-    }
-    names(countList) <- nameAssays
+    numInfo <- df[, !(names(df) %in% RangeInfo), drop = FALSE]
     rowRanges <- do.call(.makeGRangesListFromDataFrame,
-        c(list(df = df[, unlist(RangeInfo)], split.field = split.field,
-            names.field = names.field), ansRanges)
+        c(list(df = df[, unlist(RangeInfo), drop = FALSE],
+            split.field = split.field, names.field = names.field),
+            ansRanges)
     )
+    rowIdx <- split(seq_len(nrow(df)), df[[split.field]])[names(rowRanges)]
+    for (j in seq_along(rowIdx)) {
+        ord <- match(rowRanges[[1L]], rowRanges[[j]])
+        if (length(ord) != length(rowIdx[[j]]) || anyNA(ord) ||
+                anyDuplicated(ord))
+            stop("Ranges differ between samples; cannot build a",
+                " RangedSummarizedExperiment")
+        rowIdx[[j]] <- rowIdx[[j]][ord]
+    }
+    countList <- lapply(names(numInfo), function(nm) {
+        vals <- numInfo[[nm]]
+        do.call(cbind, lapply(rowIdx, function(i) vals[i]))
+    })
+    names(countList) <- names(numInfo)
     if (!is.null(build))
         Seqinfo::genome(rowRanges) <- build
-    ## All row ranges the same, take first one
     newSE <- SummarizedExperiment(assays = SimpleList(countList),
         rowRanges = rowRanges[[1L]])
     metadata(newSE) <- metadat

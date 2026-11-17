@@ -31,6 +31,7 @@ crash on valid input, **M** = misleading/cosmetic.
 |----|-----|-------|---------|
 | BUG-03 | D | `.mergePlatforms` | Same-named platforms (e.g. Agilent 07_1/07_2/07_3 -> `TX_g4502a`) are `cbind`-ed **by position**; only `nrow` is checked, not row names. Values land on the wrong gene if row order differs. |
 | BUG-04 | D | `.mergePlatforms` / `.unNestList` | Same-named platforms with different row counts are silently dropped: `biocExtract()` returns an empty list. |
+| BUG-27 | D | `.makeRangedSummarizedExperimentFromDataFrame` / `.hasConsistentRanges` | Consistency is checked with `setequal()` (order- and multiplicity-blind) but values are `cbind`-ed by row position: segments listed in a different order per sample, or rows with NA start/end (dropped from ranges only), put values on the wrong range. Found while fixing BUG-24. |
 | BUG-02 | R | `makeSummarizedExperimentFromGISTIC`, `biocExtract(GISTIC*)` | All GISTIC assays (AllByGene, ThresholdedByGene, Peaks) are **character** matrices. Arithmetic fails; sorting/comparison is lexicographic. |
 | BUG-05 | D | `.makeExprMat` | Duplicated gene symbols with different Entrez ids (e.g. `SLC35E2|728661`, `SLC35E2|9906`) keep only the first; the other gene's data are dropped without a message. |
 | BUG-26 | D | `.makeExprMat` (`RNAseq2Norm != "normalized_counts"`) | `mRNAseq_Preprocess` files have one header row but two rows are removed, so the first data row is lost. Masked in practice because the first row is usually a `?|` row. |
@@ -75,7 +76,8 @@ bioc324-index-20261104).
 - [x] BUG-05 / BUG-26 / BUG-06: rewrite `.makeExprMat` (explicit header
       handling per file type; keep or disambiguate duplicated symbols).
 - [x] BUG-01: deterministic `.stdIDs`.
-- [ ] BUG-24, BUG-23, BUG-17, BUG-10, BUG-07, then the M-level items.
+- [x] BUG-24 + BUG-27: align consistent-range segments by range.
+- [ ] BUG-23, BUG-17, BUG-10, BUG-07, then the M-level items.
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [ ] Remove dead internals.

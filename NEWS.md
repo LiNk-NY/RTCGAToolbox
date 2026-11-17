@@ -29,6 +29,12 @@ coercion warning; any other non-numeric value is now an error.
 longer depends on the random number generator; previously, vectors mixing
 dotted and dashed barcodes were converted or not at random, and the
 check consumed random numbers.
+* `biocExtract()` on segmented copy-number data in which every sample has
+the same ranges now aligns each sample's values by range instead of by row
+position. Previously, values were assigned to the wrong segment when
+samples listed their segments in different orders, or when a row with a
+missing start or end was present. Data with a single value column (e.g.,
+only `Segment_Mean`) no longer fail.
 
 ## Changes in version 2.34.0
 
