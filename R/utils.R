@@ -272,17 +272,30 @@
     x
 }
 
+## Single genome build from a build column (e.g. NCBI_Build in MAFs).
+## Equivalent labels ('37', 'GRCh37', 'hg19') count as one build; distinct
+## builds are an error (coordinates on different assemblies must not be
+## combined or relabelled). As in TCGAutils::uniformBuilds(), missing
+## values are tolerated in fewer than 20% of rows.
 .getBuild <- function(x, type = "NCBI_Build") {
-    binf <- .hasInfo(x, type)
-    if (binf) {
-        BCOL <- .findCol(x, type)
-        build <- TCGAutils::uniformBuilds(x[[BCOL]])
-        if (length(build) > 1L)
-           build <- .validateNCBI(build)
-        return(as.character(build))
-    } else {
-        NA_character_
-    }
+    if (!.hasInfo(x, type))
+        return(NA_character_)
+    bvals <- as.character(x[[.findCol(x, type)]])
+    known <- !(is.na(bvals) | bvals %in% c("", "NA"))
+    ubuilds <- unique(bvals[known])
+    if (!length(ubuilds))
+        return(NA_character_)
+    if (mean(!known) >= 0.2)
+        stop("Genome build is missing in ", sum(!known), " of ",
+            length(bvals), " rows", call. = FALSE)
+    if (length(ubuilds) == 1L)
+        return(ubuilds)
+    ncbi <- unique(vapply(ubuilds, TCGAutils::correctBuild, character(1L),
+        style = "NCBI", USE.NAMES = FALSE))
+    if (anyNA(ncbi) || length(ncbi) > 1L)
+        stop("Inconsistent genome builds found: ",
+            paste(ubuilds, collapse = ", "), call. = FALSE)
+    ncbi
 }
 
 .ansRangeNames <- function(x) {

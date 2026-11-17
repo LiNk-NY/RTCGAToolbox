@@ -33,6 +33,7 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-04 | D | `.mergePlatforms` / `.unNestList` | Same-named platforms with different row counts are silently dropped: `biocExtract()` returns an empty list. |
 | BUG-27 | D | `.makeRangedSummarizedExperimentFromDataFrame` / `.hasConsistentRanges` | Consistency is checked with `setequal()` (order- and multiplicity-blind) but values are `cbind`-ed by row position: segments listed in a different order per sample, or rows with NA start/end (dropped from ranges only), put values on the wrong range. Found while fixing BUG-24. |
 | BUG-28 | R | `makeSummarizedExperimentFromGISTIC` (by gene) | A single-sample table fails: `gist[, rel.cols]` drops to a vector, losing the sample name. |
+| BUG-29 | R | `.makeRangedSummarizedExperimentFromDataFrame` | With `names.field` (as cBioPortalData passes via `.convertRangeBioc`), the names column is dropped before the ranges are built: "'names.field' is not found". Same in 2.43.1. Fixing it changes what cBioPortalData imports (the name column would otherwise also become an assay), so coordinate with cBioPortalData. |
 | BUG-02 | R | `makeSummarizedExperimentFromGISTIC`, `biocExtract(GISTIC*)` | All GISTIC assays (AllByGene, ThresholdedByGene, Peaks) are **character** matrices. Arithmetic fails; sorting/comparison is lexicographic. |
 | BUG-05 | D | `.makeExprMat` | Duplicated gene symbols with different Entrez ids (e.g. `SLC35E2|728661`, `SLC35E2|9906`) keep only the first; the other gene's data are dropped without a message. |
 | BUG-26 | D | `.makeExprMat` (`RNAseq2Norm != "normalized_counts"`) | `mRNAseq_Preprocess` files have one header row but two rows are removed, so the first data row is lost. Masked in practice because the first row is usually a `?|` row. |
@@ -49,15 +50,31 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-25 | M | `.getBuild` | Mixed builds fail inside `TCGAutils::uniformBuilds()` with a cryptic vapply error; `.validateNCBI()` is unreachable. |
 | BUG-12 | M | `getData(..., platform = 0)` | Cryptic subscript error instead of the "valid platform" message. |
 | BUG-13 | M | `getMutationRate` | Returns `NULL` silently with no mutation data; samples read from column **16** by position; denominator is mutated samples only (undocumented). |
-| BUG-14 | — | `.makeSummarizedExperimentFromDataFrame` | Broken and unused (dead code). |
+| BUG-14 | R | `.makeSummarizedExperimentFromDataFrame` | **Not dead**: cBioPortalData calls it via `:::` with a `DataFrame` and `colnames = <sample ids>`, which works. Broken otherwise: the default `colnames = c("Hugo", "Entrez")` treats the annotation columns as samples (assay and rowData swapped), and a plain `data.frame` fails (`metadat` undefined). |
 | BUG-15 | — | `.barcodeUUID` / `getUUIDs = TRUE` | Calls `tcga-data.nci.nih.gov`, retired in 2016. Cannot work. |
 | BUG-16 | M | `show,FirehoseData` | `dim(Mutation)[2] & dim(Mutation)[2]` typo (should check rows). |
 | BUG-08 | ? | `getFirehoseData(CNACGH)` | Link pattern matches `hg_cgh_244a`/`hg_cgh_415k` (HMS) archives but not MSKCC `cgh_1x1m ... segmentation_data_computation__seg`. Decide whether that platform should be included. |
 
-Dead code (no callers): `.getGISTIC`, `.fileSelect`,
-`.makeSummarizedExperimentFromDataFrame`, `.hasExperimentData`,
-`.runOnDupElements` (unused since the BUG-03/04 fix; no Bioc users in
-bioc324-index-20261104).
+Dead code (no callers in this package): `.getGISTIC`, `.fileSelect`,
+`.runOnDupElements` (unused since BUG-03/04), `.validateNCBI` (unused
+since BUG-25). None is used elsewhere in Bioconductor
+(bioc324-index-20261104).
+
+## Internals used by other Bioconductor packages
+
+From bioc324-index-20261104 (all via `:::`, all in cBioPortalData). Their
+signatures and semantics are effectively public API; change them only
+in coordination with cBioPortalData.
+
+`.convertRangeBioc`, `.findCol`, `.getBuild`, `.hasExperimentData`,
+`.hasInfo`, `.hasRangeNames`, `.makeGRangesFromDataFrame`,
+`.makeSummarizedExperimentFromDataFrame`, `.standardizeBC`.
+
+Changes so far that reach cBioPortalData: `.standardizeBC` (BUG-01,
+deterministic; non-TCGA ids unaffected), `.getBuild` (BUG-25, clear error
+on mixed builds; all-NA column now returns NA instead of erroring),
+`.convertRangeBioc` (new `defaultBuild` argument before `...`; BUG-27
+alignment).
 
 ## Proposed order of work
 
@@ -82,7 +99,7 @@ bioc324-index-20261104).
 - [x] BUG-17: record GRCh37 for CNASNP/CNVSNP from FirehoseData.
 - [x] BUG-10: GISTIC Peaks column filter, row names, no dedup by range.
 - [x] BUG-07: gistic2Date validation.
-- [ ] Remaining M-level items (BUG-09, -13, -20, -25).
+- [ ] Remaining M-level items (BUG-09, -13, -20).
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [ ] Remove dead internals.

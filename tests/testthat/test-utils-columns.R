@@ -61,10 +61,26 @@ test_that(".getBuild reads NCBI_Build columns", {
     expect_identical(
         ns$.getBuild(data.frame(NCBI_Build = c("GRCh37", "GRCh37"))), "GRCh37")
     expect_identical(ns$.getBuild(data.frame(x = 1)), NA_character_)
-    ## [BUG-25] mixed builds fail inside TCGAutils::uniformBuilds() with a
-    ## cryptic vapply error; .validateNCBI() is never reached
+    ## BUG-25: mixed builds give a clear error (was a cryptic vapply error)
     expect_error(ns$.getBuild(data.frame(NCBI_Build = c("36", "37"))),
-        "values must be length 1")
+        "Inconsistent genome builds found: 36, 37")
+    expect_error(ns$.getBuild(data.frame(NCBI_Build = c(rep("37", 9), "36"))),
+        "Inconsistent genome builds found: 37, 36")
+    expect_error(ns$.getBuild(data.frame(NCBI_Build = c("hg19", "hg18"))),
+        "Inconsistent genome builds")
+    ## equivalent labels are one build
+    expect_identical(ns$.getBuild(data.frame(NCBI_Build = c("37", "GRCh37"))),
+        "GRCh37")
+    expect_identical(ns$.getBuild(data.frame(NCBI_Build = c("hg19", "37"))),
+        "GRCh37")
+    ## missing values: tolerated below 20%, otherwise an error
+    expect_identical(
+        ns$.getBuild(data.frame(NCBI_Build = c(rep("37", 9), NA))), "37")
+    expect_error(ns$.getBuild(data.frame(NCBI_Build = c("37", NA))),
+        "missing in 1 of 2 rows")
+    expect_identical(ns$.getBuild(data.frame(NCBI_Build = c(NA, ""))),
+        NA_character_)
+    expect_identical(ns$.getBuild(data.frame(NCBI_Build = 37L)), "37")
 })
 
 test_that(".ansRangeNames maps TCGA column names to GRanges fields", {

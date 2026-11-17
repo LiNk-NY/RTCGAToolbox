@@ -51,6 +51,10 @@ not one of `getFirehoseAnalyzeDates()` before downloading anything.
 * `makeSummarizedExperimentFromGISTIC()` works with single-sample data.
 * `getData()` gives the "valid 'platform' index" error (and lists the
 available platforms) for a zero, negative or fractional `platform`.
+* Data with more than one genome build in the `NCBI_Build` column (e.g.,
+`36` and `37`) now fail with "Inconsistent genome builds found" instead of
+an obscure internal error. Equivalent labels (`37`, `GRCh37`, `hg19`) are
+treated as one build.
 
 ## Changes in version 2.34.0
 
