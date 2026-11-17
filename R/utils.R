@@ -153,6 +153,12 @@
             is(y, "FirehoseMethylationArray")) },
         logical(1L)))
     if (suppclasses) {
+        ## DataFrame() makes duplicated row names unique ('g1', 'g1.1');
+        ## record which inputs had unique row names before that happens
+        uniqRows <- vapply(x, function(y) {
+            rn <- rownames(.getDataMatrix(y))
+            !is.null(rn) && !anyNA(rn) && !anyDuplicated(rn)
+        }, logical(1L))
         x <- lapply(x, function(y) {
             fname <- .getFilenames(y)
             platform <- .searchPlatform(fname)
@@ -170,7 +176,7 @@
             platNames <- gsub("human|hum|agilent", "", platNames)
             names(x) <- platNames
             if (anyDuplicated(platNames))
-                x <- .mergePlatforms(x)
+                x <- .mergePlatforms(x, uniqRows)
             names(x) <- make.unique(names(x), sep = "_")
         } else if (length(x) == 1L) { x <- x[[1L]] }
     }
@@ -558,19 +564,56 @@
     res[order(match(names(res), uvect))]
 }
 
-.mergePlatforms <- function(x) {
-    .runOnDupElements(x, function(dup, ...) {
-        nrows <- vapply(dup, nrow, integer(1L))
-        if (length(unique(nrows)) == 1L) {
-            mets <- lapply(dup, metadata)
-            meta <- split(
-                unlist(mets, use.names = FALSE), names(unlist(unname(mets)))
+## Combine DataFrames that share a platform name (e.g. Agilent 07_1, 07_2,
+## 07_3 all map to 'TX_g4502a'). Columns are bound only when every
+## element has the same set of unique, non-missing row names (rows are
+## aligned by name, never by position) and no sample column is repeated.
+## Otherwise the elements are returned unmerged, so no data are dropped.
+## 'uniqRows' says whether each element's original row names were unique.
+.canMergePlatforms <- function(dup, uniqRows = rep(TRUE, length(dup))) {
+    rnames <- lapply(dup, rownames)
+    ref <- rnames[[1L]]
+    validRows <- vapply(rnames, function(rn) {
+        !is.null(rn) && !anyNA(rn) && !anyDuplicated(rn) &&
+            length(rn) == length(ref) && all(rn %in% ref)
+    }, logical(1L))
+    cnames <- unlist(lapply(dup, colnames), use.names = FALSE)
+    all(uniqRows) && all(validRows) && !anyDuplicated(cnames)
+}
+
+.mergePlatforms <- function(x, uniqRows = rep(TRUE, length(x))) {
+    pnames <- names(x)
+    groups <- split(seq_along(x), factor(pnames, levels = unique(pnames)))
+    res <- lapply(groups, function(idx) {
+        dup <- unname(x[idx])
+        if (length(dup) == 1L)
+            return(dup)
+        if (!.canMergePlatforms(dup, uniqRows[idx])) {
+            fnames <- vapply(dup, function(y) {
+                paste(metadata(y)[["filename"]], collapse = ", ")
+            }, character(1L))
+            message(
+                "Platform '", pnames[idx[1L]], "' has ", length(dup),
+                " files whose rows or samples do not match;",
+                " returning them separately:\n  ",
+                paste(fnames, collapse = "\n  ")
             )
-            dup <- do.call(cbind, unname(dup))
-            metadata(dup) <- meta
+            return(dup)
         }
-        dup
+        ref <- rownames(dup[[1L]])
+        mets <- lapply(dup, metadata)
+        meta <- split(
+            unlist(mets, use.names = FALSE), names(unlist(unname(mets)))
+        )
+        dup <- lapply(dup, function(y) y[ref, , drop = FALSE])
+        merged <- do.call(cbind, dup)
+        metadata(merged) <- meta
+        list(merged)
     })
+    lens <- lengths(res)
+    res <- unlist(unname(res), recursive = FALSE)
+    names(res) <- rep(names(groups), lens)
+    res
 }
 
 ## Genome build from FILENAME

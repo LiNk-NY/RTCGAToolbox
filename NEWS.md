@@ -1,3 +1,16 @@
+## Changes in version 2.44.0
+
+### Bug fixes and minor improvements
+
+* `biocExtract()` now aligns rows by name when it combines array files
+that share a platform name (e.g., Agilent G4502A 07_1, 07_2 and 07_3).
+Previously the files were combined by position, so values could be
+assigned to the wrong gene when the row order differed between files.
+* `biocExtract()` no longer drops array files that share a platform name
+but have different rows (or overlapping samples); it returns them as
+separate elements (e.g., `TX_g4502a`, `TX_g4502a_1`) with a message.
+Previously such data were silently lost.
+
 ## Changes in version 2.34.0
 
 ### Significant user-visible changes

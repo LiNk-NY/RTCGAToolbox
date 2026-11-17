@@ -53,7 +53,9 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-08 | ? | `getFirehoseData(CNACGH)` | Link pattern matches `hg_cgh_244a`/`hg_cgh_415k` (HMS) archives but not MSKCC `cgh_1x1m ... segmentation_data_computation__seg`. Decide whether that platform should be included. |
 
 Dead code (no callers): `.getGISTIC`, `.fileSelect`,
-`.makeSummarizedExperimentFromDataFrame`, `.hasExperimentData`.
+`.makeSummarizedExperimentFromDataFrame`, `.hasExperimentData`,
+`.runOnDupElements` (unused since the BUG-03/04 fix; no Bioc users in
+bioc324-index-20261104).
 
 ## Proposed order of work
 
@@ -67,7 +69,7 @@ Dead code (no callers): `.getGISTIC`, `.fileSelect`,
       can drift).
 
 ### Phase 3 — correctness fixes (highest risk first; one per commit)
-- [ ] BUG-03 / BUG-04: merge platforms by row name, never by position;
+- [x] BUG-03 / BUG-04: merge platforms by row name, never by position;
       never drop data silently.
 - [ ] BUG-02: numeric GISTIC assays.
 - [ ] BUG-05 / BUG-26 / BUG-06: rewrite `.makeExprMat` (explicit header

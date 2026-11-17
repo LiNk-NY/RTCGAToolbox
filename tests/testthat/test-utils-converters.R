@@ -162,25 +162,84 @@ test_that(".unNestList merges same-named platforms when rows align", {
     expect_identical(metadata(res[[1L]])[["filename"]], c(agil1, agil2))
 })
 
-test_that("[BUG-03] same-named platforms are cbind-ed by position, not name", {
-    ## the second platform lists g2 before g1; values end up on the wrong gene
+test_that("same-named platforms are aligned by row name, not position", {
+    ## BUG-03: the second platform lists g2 before g1
     m_rev <- matrix(c(60, 50, 80, 70), 2,
         dimnames = list(c("g2", "g1"), c("TCGA-A1-0003-01A", "TCGA-A1-0004-01A")))
     obj <- new("FirehoseData", Dataset = "ACC",
         mRNAArray = list(mk_arr(agil1, m12), mk_arr(agil2, m_rev)))
     res <- quiet(biocExtract(obj, "mRNAArray"))
+    expect_identical(names(res), "TX_g4502a")
     a <- assay(res[[1L]])
-    ## true value of g1 in sample 3 is 50
-    expect_identical(a["g1", "TCGA-A1-0003-01A"], 60)
+    expect_identical(rownames(a), c("g1", "g2"))
+    expect_identical(a["g1", "TCGA-A1-0003-01A"], 50)
+    expect_identical(a["g2", "TCGA-A1-0003-01A"], 60)
+    expect_identical(a["g1", "TCGA-A1-0004-01A"], 70)
+    expect_identical(a["g2", "TCGA-A1-0004-01A"], 80)
+    expect_identical(a[, colnames(m12)], m12)
+    expect_identical(metadata(res[[1L]])[["filename"]], c(agil1, agil2))
 })
 
-test_that("[BUG-04] same-named platforms with different row counts vanish", {
-    m3 <- matrix(9:14 + 0, 3, dimnames = list(c("g1", "g2", "g3"),
-        c("TCGA-A1-0005-01A", "TCGA-A1-0006-01A")))
+m3 <- matrix(9:14 + 0, 3, dimnames = list(c("g1", "g2", "g3"),
+    c("TCGA-A1-0005-01A", "TCGA-A1-0006-01A")))
+
+test_that("same-named platforms with different rows are kept separately", {
+    ## BUG-04: these used to vanish (empty list)
     obj <- new("FirehoseData", Dataset = "ACC",
         mRNAArray = list(mk_arr(agil1, m12), mk_arr(agil2, m3)))
-    res <- quiet(biocExtract(obj, "mRNAArray"))
-    expect_length(res, 0L)
+    msgs <- capture_messages(res <- biocExtract(obj, "mRNAArray"))
+    expect_match(msgs, "rows or samples do not match", all = FALSE)
+    expect_match(msgs, agil2, fixed = TRUE, all = FALSE)
+    expect_identical(names(res), c("TX_g4502a", "TX_g4502a_1"))
+    expect_identical(assay(res[[1L]]), m12)
+    expect_identical(assay(res[[2L]]), m3)
+    expect_identical(metadata(res[[1L]])[["filename"]], agil1)
+    expect_identical(metadata(res[[2L]])[["filename"]], agil2)
+})
+
+test_that("same row count but different genes is not merged", {
+    m_other <- m12
+    rownames(m_other) <- c("g1", "g9")
+    colnames(m_other) <- c("TCGA-A1-0003-01A", "TCGA-A1-0004-01A")
+    res <- quiet(ns$.unNestList(
+        list(mk_arr(agil1, m12), mk_arr(agil2, m_other))))
+    expect_identical(names(res), c("TX_g4502a", "TX_g4502a_1"))
+    expect_identical(rownames(res[[2L]]), c("g1", "g9"))
+})
+
+test_that("platforms sharing a sample column are not merged", {
+    ## cbind would create duplicated sample columns
+    res <- quiet(ns$.unNestList(list(mk_arr(agil1, m12), mk_arr(agil2, m12))))
+    expect_length(res, 2L)
+    expect_identical(unname(as.matrix(res[[2L]])), unname(m12))
+})
+
+test_that("duplicated or missing row names prevent merging", {
+    md <- matrix(1:4 + 0, 2, dimnames = list(c("g1", "g1"),
+        c("TCGA-A1-0007-01A", "TCGA-A1-0008-01A")))
+    md2 <- md
+    colnames(md2) <- c("TCGA-A1-0009-01A", "TCGA-A1-0010-01A")
+    res <- quiet(ns$.unNestList(list(mk_arr(agil1, md), mk_arr(agil2, md2))))
+    expect_length(res, 2L)
+    expect_false(ns$.canMergePlatforms(list(
+        S4Vectors::DataFrame(a = 1:2), S4Vectors::DataFrame(b = 1:2))))
+})
+
+test_that("three same-named platforms merge; group order follows input", {
+    m34 <- matrix(c(5, 6, 7, 8), 2,
+        dimnames = list(c("g2", "g1"), c("TCGA-A1-0003-01A", "TCGA-A1-0004-01A")))
+    m56 <- matrix(c(9, 10, 11, 12), 2,
+        dimnames = list(c("g1", "g2"), c("TCGA-A1-0005-01A", "TCGA-A1-0006-01A")))
+    agil3 <- sub("07_2", "07_3", agil2)
+    res <- quiet(ns$.unNestList(list(mk_arr(u133, m12), mk_arr(agil1, m12),
+        mk_arr(agil2, m34), mk_arr(agil3, m56))))
+    expect_identical(names(res), c("TX_ht_hg_u133a", "TX_g4502a"))
+    expect_identical(dim(res[["TX_g4502a"]]), c(2L, 6L))
+    mm <- as.matrix(res[["TX_g4502a"]])
+    expect_identical(unname(mm["g1", ]), c(1, 3, 6, 8, 9, 11))
+    expect_identical(unname(mm["g2", ]), c(2, 4, 5, 7, 10, 12))
+    expect_identical(metadata(res[["TX_g4502a"]])[["filename"]],
+        c(agil1, agil2, agil3))
 })
 
 test_that("distinct platforms are returned as a named list of SEs", {
