@@ -16,13 +16,11 @@
 }
 
 ## Standardize barcode format
+## When every identifier is a TCGA barcode, replace '.' separators (from
+## make.names()) with '-' and upper-case; otherwise return the input as is.
 .stdIDs <- function(sampleBarcode) {
-    if (all(startsWith(sampleBarcode, "TCGA"))) {
-        bcodeTest <- grepl("\\.", sample(sampleBarcode, 10L, replace = TRUE))
-        if (all(bcodeTest))
-            sampleBarcode <- gsub("\\.", "-", sampleBarcode)
-        sampleBarcode <- toupper(sampleBarcode)
-    }
+    if (isTRUE(all(startsWith(sampleBarcode, "TCGA"))))
+        sampleBarcode <- toupper(gsub(".", "-", sampleBarcode, fixed = TRUE))
     sampleBarcode
 }
 

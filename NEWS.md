@@ -25,6 +25,10 @@ row names are unchanged. Previously only the first gene was kept.
 correctly instead of failing.
 * Missing values written as `null` in array data become `NA` without a
 coercion warning; any other non-numeric value is now an error.
+* Standardisation of dotted TCGA barcodes (e.g., `TCGA.OR.A5J1.01A`) no
+longer depends on the random number generator; previously, vectors mixing
+dotted and dashed barcodes were converted or not at random, and the
+check consumed random numbers.
 
 ## Changes in version 2.34.0
 

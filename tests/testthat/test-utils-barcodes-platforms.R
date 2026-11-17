@@ -28,17 +28,24 @@ test_that(".stdIDs leaves non-TCGA identifiers untouched", {
     )
 })
 
-test_that("[BUG-01] .stdIDs result on mixed input depends on the RNG", {
-    ## One dotted and one dashed barcode: whether the dots are replaced
-    ## depends on which elements sample() draws.
+test_that(".stdIDs is deterministic on mixed dotted/dashed input", {
+    ## BUG-01: the result used to depend on which elements sample() drew
     mixed <- c("TCGA-OR-A5J1-01A", "TCGA.OR.A5J2.01A")
-    outs <- vapply(1:2000, function(s)
+    outs <- vapply(1:200, function(s)
         withr::with_seed(s, paste(ns$.stdIDs(mixed), collapse = " ")),
         character(1L))
-    expect_setequal(unique(outs), c(
-        "TCGA-OR-A5J1-01A TCGA.OR.A5J2.01A",
-        "TCGA-OR-A5J1-01A TCGA-OR-A5J2-01A"
-    ))
+    expect_identical(unique(outs), "TCGA-OR-A5J1-01A TCGA-OR-A5J2-01A")
+    ## does not touch the RNG
+    withr::with_seed(1, {
+        before <- .Random.seed
+        ns$.stdIDs(rep("TCGA.A", 20))
+        expect_identical(.Random.seed, before)
+    })
+})
+
+test_that(".stdIDs handles NA and empty input", {
+    expect_identical(ns$.stdIDs(character(0L)), character(0L))
+    expect_identical(ns$.stdIDs(c("TCGA.A1", NA)), c("TCGA.A1", NA))
 })
 
 test_that(".standardizeBC standardises column names only", {

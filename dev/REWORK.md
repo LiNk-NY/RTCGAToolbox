@@ -74,7 +74,7 @@ bioc324-index-20261104).
 - [x] BUG-02: numeric GISTIC assays.
 - [x] BUG-05 / BUG-26 / BUG-06: rewrite `.makeExprMat` (explicit header
       handling per file type; keep or disambiguate duplicated symbols).
-- [ ] BUG-01: deterministic `.stdIDs`.
+- [x] BUG-01: deterministic `.stdIDs`.
 - [ ] BUG-24, BUG-23, BUG-17, BUG-10, BUG-07, then the M-level items.
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
