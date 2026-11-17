@@ -68,6 +68,11 @@ test_that("show methods print a summary", {
     expect_true(any(grepl("GISTIC: A FirehoseGISTIC", out)))
     expect_false(any(grepl("^  RNASeqGene:", out)))
 
+    ## BUG-16: a Mutation table with columns but no rows is not listed
+    x <- accmini
+    x@Mutation <- x@Mutation[0L, ]
+    expect_false(any(grepl("Mutation:", capture.output(show(x)))))
+
     empty <- capture.output(show(new("FirehoseData", Dataset = "X")))
     expect_identical(empty[length(empty)],
         "To export data, use the 'getData' function.")

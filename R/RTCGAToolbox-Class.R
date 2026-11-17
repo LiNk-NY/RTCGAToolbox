@@ -186,7 +186,7 @@ setMethod("show", "FirehoseData",function(object) {
                 length(object@RPPAArray), "\n")}
     if (length(object@GISTIC@Dataset)) {
         cat("  GISTIC: A FirehoseGISTIC for copy number data", "\n")}
-    if (dim(object@Mutation)[2] & dim(object@Mutation)[2]) {
+    if (dim(object@Mutation)[1] & dim(object@Mutation)[2]) {
         cat("  Mutation: A data.frame, dim: ", paste(dim(object@Mutation),
         collapse = " x "), "\n")}
     cat("To export data, use the 'getData' function.\n")
