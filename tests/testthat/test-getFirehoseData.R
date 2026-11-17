@@ -189,7 +189,7 @@ local({
         expect_identical(unname(m["4E-BP1_pS65", ]), c(-1.5, 2.75))
     })
 
-    test_that("Mutation: per-sample MAFs merged on shared columns", {
+    test_that("Mutation: per-sample MAFs stacked by column name", {
         mu <- x@Mutation
         expect_identical(nrow(mu), 3L)
         expect_true("Extra_Col" %in% names(mu))
@@ -206,8 +206,9 @@ local({
             "x")
         expect_true(all(is.na(
             mu[["Extra_Col"]][mu[["Start_position"]] != "7578406"])))
-        ## [BUG-20] merge() re-sorts rows (KRAS first) instead of file order
-        expect_identical(mu[["Hugo_Symbol"]], c("KRAS", "TP53", "TP53"))
+        ## BUG-20: rows stay in file order (merge() used to re-sort them)
+        expect_identical(mu[["Hugo_Symbol"]], c("TP53", "KRAS", "TP53"))
+        expect_identical(names(mu)[length(mu)], "Extra_Col")
     })
 
     test_that("GISTIC: three tables, read as character", {

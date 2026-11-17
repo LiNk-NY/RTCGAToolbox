@@ -37,3 +37,20 @@ test_that("getMutationRate input handling", {
     ## [BUG-13] no mutation data returns NULL silently
     expect_null(getMutationRate(new("FirehoseData", Dataset = "X")))
 })
+
+test_that(".rbindMAFs is a row union, never a join", {
+    a <- data.frame(Hugo_Symbol = c("TP53", "TP53"), Sample = c("s1", "s1"))
+    b <- data.frame(Hugo_Symbol = "TP53", Sample = "s1", Extra = "x")
+    ## identical shared columns: a join would collapse or multiply rows
+    res <- ns$.rbindMAFs(list(a, b))
+    expect_identical(nrow(res), 3L)
+    expect_identical(names(res), c("Hugo_Symbol", "Sample", "Extra"))
+    expect_identical(res[["Extra"]], c(NA, NA, "x"))
+    ## same columns in a different order are matched by name
+    c2 <- data.frame(Sample = "s2", Hugo_Symbol = "KRAS")
+    res <- ns$.rbindMAFs(list(a, c2))
+    expect_identical(res[["Hugo_Symbol"]], c("TP53", "TP53", "KRAS"))
+    expect_identical(res[["Sample"]], c("s1", "s1", "s2"))
+    ## identical columns: plain rbind
+    expect_identical(ns$.rbindMAFs(list(a, a)), rbind(a, a))
+})

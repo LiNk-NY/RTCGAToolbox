@@ -57,6 +57,11 @@ an obscure internal error. Equivalent labels (`37`, `GRCh37`, `hg19`) are
 treated as one build.
 * `getFirehoseData(clinical = TRUE)` no longer returns the
 `Composite Element REF` column, which only repeated the word "value".
+* `getFirehoseData(Mutation = TRUE)` stacks per-sample MAF files with
+different columns by column name (missing columns are `NA`) and keeps file
+order. Previously they were combined with `merge()`, a join on all shared
+columns, which re-sorted rows and could collapse rows or copy values
+between rows when the shared columns were identical.
 
 ## Changes in version 2.34.0
 

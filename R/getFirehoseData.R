@@ -58,6 +58,18 @@
     syms
 }
 
+## Stack per-sample MAF tables in file order. Files whose columns differ
+## are bound by column name and missing columns are filled with NA (a row
+## union, never a join on shared columns).
+.rbindMAFs <- function(datalist) {
+    cols <- lapply(datalist, names)
+    if (length(unique(cols)) == 1L)
+        return(do.call(rbind, datalist))
+    as.data.frame(
+        data.table::rbindlist(datalist, use.names = TRUE, fill = TRUE)
+    )
+}
+
 #' @importFrom utils setTxtProgressBar
 .getLinks <- function(keyWord1,keyWord2,datasetLink=NULL,doc) {
   plinks <- grep(keyWord1, doc, value = TRUE)
@@ -770,15 +782,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
             datalist <- lapply(file.path(destdir, fileList),FUN=function(files) {
               read.delim(files,header=TRUE,colClasses="character")
             })
-            dlengths <- lengths(datalist)
-            if (!identical(length(unique(dlengths)), 1L)) {
-                splitlist <- split(datalist, dlengths)
-                splitlist <- lapply(splitlist, function(g) do.call(rbind, g))
-                retMutations <-
-                    Reduce(function(...) merge(..., all = TRUE), splitlist)
-            } else {
-                retMutations <- do.call(rbind, datalist)
-            }
+            retMutations <- .rbindMAFs(datalist)
             delFolder <- file.path(destdir, dirname(fileList[[1L]]))
             unlink(delFolder, recursive = TRUE)
             file.remove(tarfile)
