@@ -10,6 +10,11 @@ assigned to the wrong gene when the row order differed between files.
 but have different rows (or overlapping samples); it returns them as
 separate elements (e.g., `TX_g4502a`, `TX_g4502a_1`) with a message.
 Previously such data were silently lost.
+* `makeSummarizedExperimentFromGISTIC()` and `biocExtract()` on GISTIC
+data now return numeric assays: double for `AllByGene`, integer for
+`ThresholdedByGene` and `Peaks` (double if any value is not whole).
+Previously the assays were character matrices. Values that are not
+numbers now raise an error instead of being coerced.
 
 ## Changes in version 2.34.0
 

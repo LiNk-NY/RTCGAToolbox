@@ -71,7 +71,7 @@ bioc324-index-20261104).
 ### Phase 3 — correctness fixes (highest risk first; one per commit)
 - [x] BUG-03 / BUG-04: merge platforms by row name, never by position;
       never drop data silently.
-- [ ] BUG-02: numeric GISTIC assays.
+- [x] BUG-02: numeric GISTIC assays.
 - [ ] BUG-05 / BUG-26 / BUG-06: rewrite `.makeExprMat` (explicit header
       handling per file type; keep or disambiguate duplicated symbols).
 - [ ] BUG-01: deterministic `.stdIDs`.

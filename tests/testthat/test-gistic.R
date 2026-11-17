@@ -69,22 +69,48 @@ test_that("makeSummarizedExperimentFromGISTIC by-gene values and names", {
         expect_identical(colnames(se), GBC)
         expect_identical(names(rowData(se)),
             c("Gene.Symbol", "Locus.ID", "Cytoband"))
-        expect_identical(unname(assay(se)),
-            unname(as.matrix(raw[, 4:5])), info = dt)
+        expect_equal(unname(assay(se)),
+            unname(apply(as.matrix(raw[, 4:5]), 2L, as.numeric)), info = dt)
     }
     se <- makeSummarizedExperimentFromGISTIC(g, "AllByGene")
-    expect_identical(unname(assay(se)["AGRN", ]), c("0.125", "-1.250"))
+    expect_identical(unname(assay(se)["AGRN", ]), c(0.125, -1.25))
 })
 
-test_that("[BUG-02] GISTIC assays are character, not numeric", {
+test_that("GISTIC assays are numeric and match the fixture text", {
+    ## BUG-02: these used to be character matrices
     g <- fixture_gistic()
-    for (dt in c("AllByGene", "ThresholdedByGene", "Peaks"))
-        expect_identical(storage.mode(assay(
-            makeSummarizedExperimentFromGISTIC(g, dt))), "character",
-            info = dt)
+    a <- assay(makeSummarizedExperimentFromGISTIC(g, "AllByGene"))
+    expect_identical(storage.mode(a), "double")
+    expect_identical(unname(a), matrix(c(0.03, 0.125, -0.5, -0.07, -1.25, 0.9),
+        3L))
+    expect_identical(dimnames(a), list(c("ACAP3", "AGRN", "TP53"), GBC))
+    t <- assay(makeSummarizedExperimentFromGISTIC(g, "ThresholdedByGene"))
+    expect_identical(unname(t), matrix(c(0L, 1L, -2L, 0L, -1L, 2L), 3L))
+    p <- assay(makeSummarizedExperimentFromGISTIC(g, "Peaks"))
+    expect_identical(unname(p), matrix(c(2L, 0L, 0L, 2L), 2L))
+    expect_identical(colnames(p), GBC)
     for (ty in c("GISTICA", "GISTICT", "GISTICP"))
-        expect_identical(storage.mode(assay(quiet(biocExtract(accmini, ty)))),
-            "character", info = ty)
+        expect_true(is.numeric(assay(quiet(biocExtract(accmini, ty)))),
+            info = ty)
+    ## values agree with the character slot
+    ta <- assay(makeSummarizedExperimentFromGISTIC(accmini, "ThresholdedByGene"))
+    raw <- accmini@GISTIC@ThresholdedByGene
+    raw <- as.matrix(raw[grepl("^TCGA", names(raw))])
+    expect_identical(unname(ta), unname(array(as.integer(raw), dim(raw))))
+})
+
+test_that(".gisticToNumeric is strict and lossless", {
+    m <- matrix(c("1", " 2", "", "NA"), 2, dimnames = list(c("a", "b"), NULL))
+    expect_identical(ns$.gisticToNumeric(m, integer = TRUE),
+        matrix(c(1L, 2L, NA, NA), 2, dimnames = list(c("a", "b"), NULL)))
+    expect_identical(ns$.gisticToNumeric(m), matrix(c(1, 2, NA, NA), 2,
+        dimnames = list(c("a", "b"), NULL)))
+    ## non-whole values are never truncated
+    expect_identical(ns$.gisticToNumeric(matrix(c("1", "1.5")), integer = TRUE),
+        matrix(c(1, 1.5)))
+    expect_error(ns$.gisticToNumeric(matrix(c("1", "amp"))),
+        "Non-numeric values in GISTIC data: amp")
+    expect_identical(ns$.gisticToNumeric(matrix(1:2)), matrix(1:2))
 })
 
 test_that("makeSummarizedExperimentFromGISTIC duplicated symbols keep rows", {
@@ -103,8 +129,8 @@ test_that("makeSummarizedExperimentFromGISTIC Peaks: ranges and rowData", {
         c("chr1:120523956-155582840", "chr3:59000000-61000000"))
     expect_identical(rowData(se)[["type"]], c("Amplification", "Deletion"))
     expect_identical(colnames(se), GBC)
-    expect_identical(unname(assay(se)[, GBC[1L]]), c("2", "0"))
-    expect_identical(unname(assay(se)[, GBC[2L]]), c("0", "2"))
+    expect_identical(unname(assay(se)[, GBC[1L]]), c(2L, 0L))
+    expect_identical(unname(assay(se)[, GBC[2L]]), c(0L, 2L))
     ## [BUG-10] row names are leftover data.frame row indices, not peak names
     expect_identical(rownames(se), c("1", "3"))
 })
