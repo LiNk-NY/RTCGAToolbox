@@ -35,6 +35,10 @@ position. Previously, values were assigned to the wrong segment when
 samples listed their segments in different orders, or when a row with a
 missing start or end was present. Data with a single value column (e.g.,
 only `Segment_Mean`) no longer fail.
+* `biocExtract()` accepts a bare matrix, a plain `data.frame`, or a
+`FirehoseGISTIC` object, not only a `FirehoseData` object. Non-ranged
+tables with non-numeric columns now raise an error instead of being
+converted to factor codes.
 
 ## Changes in version 2.34.0
 

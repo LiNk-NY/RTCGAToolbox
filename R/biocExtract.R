@@ -78,7 +78,7 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
     if (!identical(length(type), 1L))
         stop("Please specify a single data type")
     message("working on: ", type)
-    if (!is(object, "DataFrame") && !is.data.frame(object))
+    if (is(object, "FirehoseData"))
         object <- .removeShell(object, type)
     if (!length(object)) { return(object) }
     if (is.list(object) && !is.data.frame(object)) {
@@ -133,12 +133,14 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
         object <- .convertRangeBioc(object)
     } else {
         object <- .standardizeBC(object)
-        metadat <- metadata(object)
-        object <- tryCatch({
-            data.matrix(object)
-        }, error = function(e) {
-            object
-        })
+        metadat <- if (is(object, "Annotated")) metadata(object) else list()
+        ## data.matrix() would turn character columns into factor codes
+        isNum <- vapply(seq_len(ncol(object)), function(j)
+            is.numeric(object[[j]]) || is.logical(object[[j]]), logical(1L))
+        if (!all(isNum))
+            stop("Cannot convert non-numeric columns to an assay: ",
+                paste(utils::head(names(object)[!isNum], 5L), collapse = ", "))
+        object <- data.matrix(object)
         object <- SummarizedExperiment(assays = SimpleList(object))
         metadata(object) <- metadat
     }

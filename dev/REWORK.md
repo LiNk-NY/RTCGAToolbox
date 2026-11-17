@@ -77,7 +77,8 @@ bioc324-index-20261104).
       handling per file type; keep or disambiguate duplicated symbols).
 - [x] BUG-01: deterministic `.stdIDs`.
 - [x] BUG-24 + BUG-27: align consistent-range segments by range.
-- [ ] BUG-23, BUG-17, BUG-10, BUG-07, then the M-level items.
+- [x] BUG-23: `biocExtract` on matrix / data.frame / FirehoseGISTIC.
+- [ ] BUG-17, BUG-10, BUG-07, then the M-level items.
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [ ] Remove dead internals.

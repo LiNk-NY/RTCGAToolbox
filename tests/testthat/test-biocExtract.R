@@ -130,10 +130,29 @@ test_that("multi-sample MAF becomes a RaggedExperiment with GRCh37", {
         c(NA, NA, "Nonsense"))
 })
 
-test_that("[BUG-23] biocExtract errors on bare matrix / non-ranged data.frame", {
+test_that("biocExtract accepts a bare matrix or a plain data.frame", {
+    ## BUG-23: both used to error
     m <- matrix(1:4, 2, dimnames = list(c("a", "b"), c("x", "y")))
-    expect_error(quiet(biocExtract(m, "RNASeq2Gene")), "subscript out of bounds")
+    se <- quiet(biocExtract(m, "RNASeq2Gene"))
+    expect_s4_class(se, "SummarizedExperiment")
+    expect_identical(assay(se), m)
     df <- data.frame("TCGA.A1.0001.01A" = c(1, 2), "TCGA.A1.0002.01A" = c(3, 4),
         row.names = c("g1", "g2"), check.names = FALSE)
-    expect_error(quiet(biocExtract(df, "RNASeq2Gene")), "metadata")
+    se <- quiet(biocExtract(df, "RNASeq2Gene"))
+    expect_identical(assay(se), matrix(c(1, 2, 3, 4), 2, dimnames = list(
+        c("g1", "g2"), c("TCGA-A1-0001-01A", "TCGA-A1-0002-01A"))))
+    expect_identical(metadata(se), list())
+})
+
+test_that("biocExtract never turns character columns into factor codes", {
+    df <- data.frame(TCGA.A1.0001.01A = c("high", "low"),
+        TCGA.A1.0002.01A = c(3, 4), row.names = c("g1", "g2"))
+    expect_error(quiet(biocExtract(df, "RNASeq2Gene")),
+        "non-numeric columns to an assay: TCGA-A1-0001-01A")
+})
+
+test_that("biocExtract on a FirehoseGISTIC object", {
+    data(accmini, package = "RTCGAToolbox", envir = environment())
+    expect_identical(quiet(biocExtract(accmini@GISTIC, "GISTICT")),
+        quiet(biocExtract(accmini, "GISTICT")))
 })
