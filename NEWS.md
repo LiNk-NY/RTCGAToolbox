@@ -49,6 +49,8 @@ peaks that share the same limits are no longer dropped.
 * `getFirehoseData(GISTIC = TRUE)` now rejects a `gistic2Date` that is
 not one of `getFirehoseAnalyzeDates()` before downloading anything.
 * `makeSummarizedExperimentFromGISTIC()` works with single-sample data.
+* `getData()` gives the "valid 'platform' index" error (and lists the
+available platforms) for a zero, negative or fractional `platform`.
 
 ## Changes in version 2.34.0
 

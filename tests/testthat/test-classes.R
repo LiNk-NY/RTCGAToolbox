@@ -37,8 +37,10 @@ test_that("getData with platform index for list slots", {
     expect_error(quiet(getData(accmini, "Methylation", "a")),
         "valid 'platform' index")
     expect_error(getData(accmini, "mRNAArray", 1), "No data available")
-    ## [BUG-12] index 0 gives a cryptic subscript error
-    expect_error(getData(accmini, "Methylation", 0), "less than one element")
+    ## BUG-12: invalid indices get the "valid platform" message
+    for (bad in list(0, -1, 1.5))
+        expect_error(quiet(getData(accmini, "Methylation", bad)),
+            "valid 'platform' index", info = bad)
 })
 
 test_that("getData for GISTIC platforms", {

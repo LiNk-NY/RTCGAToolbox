@@ -2,7 +2,8 @@
     stopifnot(length(platform) == 1L, !is.na(platform), !is.null(platform))
     if (!length(object))
         stop("No data available in platform")
-    if (!is.numeric(platform) || platform > length(object)) {
+    if (!is.numeric(platform) || platform < 1 ||
+        platform > length(object) || platform != round(platform)) {
         for (i in seq_along(object)) {
             message("Accessible platforms:\n",
                 paste0("[",i,"] ",object[[i]]@Filename)
