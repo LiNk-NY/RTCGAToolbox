@@ -38,6 +38,14 @@ ignored. Use `TCGAutils::barcodeToUUID()` instead; see
 
 ### Bug fixes and minor improvements
 
+* Internal converters used by cBioPortalData: ranged data with a
+`names.field` (e.g., mutations) and the same ranges in every sample no
+longer fail with "'names.field' is not found"; the names label the ranges
+and are not an assay. `.convertRangeBioc()` gains `ragged = TRUE` to always
+return a `RaggedExperiment`. `.makeSummarizedExperimentFromDataFrame()`
+works with a single sample column, a plain `data.frame`, and without a
+`colnames` argument (sample columns starting with "TCGA").
+
 * `biocExtract()` now aligns rows by name when it combines array files
 that share a platform name (e.g., Agilent G4502A 07_1, 07_2 and 07_3).
 Previously the files were combined by position, so values could be

@@ -148,6 +148,36 @@ test_that("repeated ranges within a sample are not forced into an RSE", {
     expect_true(ns$.hasConsistentRanges(df[1:2, ]))
 })
 
+test_that("names.field labels the ranges and is not an assay", {
+    ## BUG-29: '.convertRangeBioc(names.field = )' (as cBioPortalData calls
+    ## it) failed for identical ranges: "'names.field' is not found"
+    maf <- S4Vectors::DataFrame(Hugo_Symbol = c("TP53", "KRAS"),
+        Chromosome = c("17", "12"), Start_Position = c(7577120L, 25398284L),
+        End_Position = c(7577120L, 25398284L), Strand = "+",
+        Variant_Classification = c("Missense", "Nonsense"),
+        Tumor_Sample_Barcode = "S1")
+    rse <- quiet(ns$.convertRangeBioc(maf, names.field = "Hugo_Symbol"))
+    expect_s4_class(rse, "RangedSummarizedExperiment")
+    expect_identical(rownames(rse), c("TP53", "KRAS"))
+    expect_identical(assayNames(rse), "Variant_Classification")
+    expect_identical(assay(rse), matrix(c("Missense", "Nonsense"), 2L,
+        dimnames = list(c("TP53", "KRAS"), "S1")))
+    re <- quiet(ns$.convertRangeBioc(maf, names.field = "Hugo_Symbol",
+        ragged = TRUE))
+    expect_s4_class(re, "RaggedExperiment")
+    expect_identical(rownames(re), c("TP53", "KRAS"))
+    expect_identical(assayNames(re), "Variant_Classification")
+    ## names stay with their ranges when a row has no range
+    maf2 <- rbind(maf, maf[1L, ])
+    maf2[["Tumor_Sample_Barcode"]] <- c("S1", "S1", "S2")
+    maf2[["Start_Position"]][2L] <- NA
+    re2 <- quiet(ns$.convertRangeBioc(maf2, names.field = "Hugo_Symbol",
+        ragged = TRUE))
+    expect_identical(rownames(re2), c("TP53", "TP53"))
+    expect_identical(unname(assay(re2)), matrix(c("Missense", NA, NA,
+        "Missense"), 2L))
+})
+
 test_that(".convertRangeBioc(ragged = TRUE) always gives a RaggedExperiment", {
     ## cBioPortalData relies on the default (RSE for identical ranges)
     df <- consistent_df()
@@ -311,11 +341,38 @@ test_that("distinct platforms are returned as a named list of SEs", {
     expect_identical(metadata(res[["TX_ht_hg_u133a"]])[["filename"]], u133)
 })
 
-test_that("[BUG-14] .makeSummarizedExperimentFromDataFrame is broken (unused)", {
-    df <- data.frame(Hugo_Symbol = c("A", "B"),
+test_that(".makeSummarizedExperimentFromDataFrame without cBioPortalData args", {
+    ## BUG-14: the default 'colnames' treated Hugo/Entrez columns as samples,
+    ## and a plain data.frame failed ('metadat' undefined)
+    df <- data.frame(Hugo_Symbol = c("A", "B"), Entrez_Gene_Id = 1:2,
         "TCGA-A1-0001-01A" = c(1, 2), "TCGA-A1-0002-01A" = c(3, 4),
         check.names = FALSE)
-    expect_error(ns$.makeSummarizedExperimentFromDataFrame(df))
-    expect_error(ns$.makeSummarizedExperimentFromDataFrame(
-        S4Vectors::DataFrame(df, check.names = FALSE)))
+    for (x in list(df, S4Vectors::DataFrame(df, check.names = FALSE))) {
+        se <- ns$.makeSummarizedExperimentFromDataFrame(x)
+        expect_identical(assay(se), matrix(c(1, 2, 3, 4), 2L,
+            dimnames = list(c("A", "B"),
+                c("TCGA-A1-0001-01A", "TCGA-A1-0002-01A"))))
+        expect_identical(as.data.frame(rowData(se)), data.frame(
+            Hugo_Symbol = c("A", "B"), Entrez_Gene_Id = 1:2,
+            row.names = c("A", "B")))
+    }
+    expect_error(ns$.makeSummarizedExperimentFromDataFrame(df[, 1:2]),
+        "No sample columns")
+})
+
+test_that(".makeSummarizedExperimentFromDataFrame as cBioPortalData calls it", {
+    dat <- S4Vectors::DataFrame(Hugo_Symbol = c("A", "B", "C"),
+        Entrez_Gene_Id = 1:3, S1 = c(0.1, 0.2, 0.3), S2 = c(1, 2, 3))
+    metadata(dat) <- list(x = 1)
+    se <- ns$.makeSummarizedExperimentFromDataFrame(dat,
+        names.field = "Entrez_Gene_Id", colnames = c("S1", "S2"))
+    expect_identical(assay(se), matrix(c(0.1, 0.2, 0.3, 1, 2, 3), 3L,
+        dimnames = list(c("1", "2", "3"), c("S1", "S2"))))
+    expect_identical(rowData(se)[["Hugo_Symbol"]], c("A", "B", "C"))
+    expect_identical(metadata(se), list(x = 1))
+    ## a single sample column used to be dropped to a vector and fail
+    one <- ns$.makeSummarizedExperimentFromDataFrame(dat[, 1:3],
+        names.field = "Hugo_Symbol", colnames = "S1")
+    expect_identical(assay(one), matrix(c(0.1, 0.2, 0.3), 3L,
+        dimnames = list(c("A", "B", "C"), "S1")))
 })

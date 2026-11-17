@@ -387,22 +387,26 @@
 }
 
 ## Safe to assume equal number of ranges == equal ranges (?)
+## 'colnames': prefixes of the sample columns (cBioPortalData passes the
+## sample identifiers); by default, columns starting with 'TCGA'
 .makeSummarizedExperimentFromDataFrame <-
-    function(df, ..., colnames = c("Hugo", "Entrez"))
+    function(df, ..., colnames = character(0L))
 {
     samplesAsCols <- .samplesAsCols(df, colnames)
-    if (is(df, "DataFrame"))
-        metadat <- metadata(df)
-    if (any(samplesAsCols)) {
-        rowData <- df[, !samplesAsCols, drop = FALSE]
-    }
-    df <- data.matrix(df[, samplesAsCols])
+    if (!any(samplesAsCols))
+        stop("No sample columns found")
+    metadat <- if (is(df, "DataFrame")) metadata(df) else list()
+    rowData <- df[, !samplesAsCols, drop = FALSE]
+    df <- data.matrix(df[, samplesAsCols, drop = FALSE])
 
     df <- .standardizeBC(df)
     args <- list(...)
     names.field <- args[["names.field"]]
     if (is.null(names.field) || !length(names.field)) {
-        df <- .setAnnoRows(df)
+        ## the annotation columns are in rowData, not in the matrix
+        annoName <- .findUniqueAnnoCol(rowData)
+        if (length(annoName))
+            rownames(df) <- rowData[[annoName]]
     } else {
         rownames(df) <- rowData[[names.field]]
     }
@@ -431,9 +435,8 @@
     build <- args[["build"]]
     names.field <- args[["names.field"]]
     if (is.null(names.field) || !length(names.field)) {
+        names.field <- NULL
         df <- .setAnnoRows(df)
-    } else {
-        rownames(df) <- df[[names.field]]
     }
     metadat <- if (is(df, "DataFrame")) metadata(df) else list()
     split.field <- .findSampleCol(df)
@@ -441,9 +444,11 @@
     df <- df[!.missingRanges(df, ansRanges), , drop = FALSE]
     strictRanges <- Filter(function(x) !is.logical(x), ansRanges)
     RangeInfo <- c(strictRanges, list(split.field = split.field))
-    numInfo <- df[, !(names(df) %in% RangeInfo), drop = FALSE]
+    ## the names column labels the ranges (BUG-29); it is not an assay
+    numInfo <- df[, !(names(df) %in% c(RangeInfo, names.field)),
+        drop = FALSE]
     rowRanges <- do.call(.makeGRangesListFromDataFrame,
-        c(list(df = df[, unlist(RangeInfo), drop = FALSE],
+        c(list(df = df[, c(unlist(RangeInfo), names.field), drop = FALSE],
             split.field = split.field, names.field = names.field),
             ansRanges)
     )
@@ -568,8 +573,10 @@
 
     ansRanges <- .ansRangeNames(df)
     NAranges <- .missingRanges(df, ansRanges)
-    df <- df[!NAranges, ]
+    df <- df[!NAranges, , drop = FALSE]
     splitField <- splitField[!NAranges]
+    if (!is.null(namesField))
+        namesField <- namesField[!NAranges]
 
     gr <- .makeGRangesFromDataFrame(df, ...)
     names(gr) <- namesField
