@@ -42,6 +42,10 @@ converted to factor codes.
 * `biocExtract(x, "CNASNP")` and `biocExtract(x, "CNVSNP")` on a
 `FirehoseData` object now record the genome build (`GRCh37`) on the ranges.
 `getFirehoseData()` only downloads the hg19 SNP6 segmentation files.
+* GISTIC `Peaks`: the empty, unnamed trailing column (e.g., `V100`) is
+removed by `getGISTICPeaks()`; the `SummarizedExperiment` row names are now
+the peak names (e.g., `Amplification Peak  1`) instead of row indices; and
+peaks that share the same limits are no longer dropped.
 
 ## Changes in version 2.34.0
 

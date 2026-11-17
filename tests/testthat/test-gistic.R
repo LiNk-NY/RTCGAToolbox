@@ -31,10 +31,12 @@ test_that("getGISTICPeaks keeps only 'Peak N' rows and parses limits", {
     expect_identical(names(p)[1L], "rowRanges")
     ## barcodes standardised
     expect_true(all(GBC %in% names(p)))
-    ## [BUG-10] the empty trailing column holds "" (not NA), so the
-    ## all-NA column filter keeps it
-    expect_true("V12" %in% names(p))
-    expect_true(all(p[["V12"]] == ""))
+    ## BUG-10: the empty trailing column (values "") is dropped
+    expect_false(any(grepl("^V[0-9]+$", names(p))))
+    expect_identical(names(p), c("rowRanges", "Unique.Name", "Descriptor",
+        "Wide.Peak.Limits", "Peak.Limits", "Region.Limits", "q.values",
+        "Residual.q.values.after.removing.segments.shared.with.higher.peaks",
+        "Broad.or.Focal", "Amplitude.Threshold", GBC))
     ## sample values untouched (still character)
     expect_identical(p[[GBC[1L]]], c("2", "0", "1"))
     expect_identical(p[[GBC[2L]]], c("0", "2", "2"))
@@ -54,7 +56,9 @@ test_that("getGISTICPeaks peak types select the right limits column", {
 
 test_that("getGISTICPeaks works on FirehoseData (accmini)", {
     p <- getGISTICPeaks(accmini, "wide")
-    expect_identical(dim(p), c(6L, 101L))
+    ## rowRanges + 9 annotation columns + 90 samples; V100 (empty) dropped
+    expect_identical(dim(p), c(6L, 100L))
+    expect_false("V100" %in% names(p))
     expect_identical(p[["rowRanges"]][1:2],
         c("chr1:120523956-155582840", "chr4:1-2496016"))
 })
@@ -137,13 +141,33 @@ test_that("makeSummarizedExperimentFromGISTIC Peaks: ranges and rowData", {
     expect_identical(colnames(se), GBC)
     expect_identical(unname(assay(se)[, GBC[1L]]), c(2L, 0L))
     expect_identical(unname(assay(se)[, GBC[2L]]), c(0L, 2L))
-    ## [BUG-10] row names are leftover data.frame row indices, not peak names
-    expect_identical(rownames(se), c("1", "3"))
+    ## BUG-10: row names are the peak names, not data.frame row indices
+    expect_identical(rownames(se),
+        c("Amplification Peak  1", "Deletion Peak  1"))
+    expect_identical(rowData(se)[["Unique.Name"]], rownames(se))
 })
 
-test_that("[BUG-10] accmini Peaks rowData carries the empty trailing column", {
+test_that("Peaks with identical limits are all kept", {
+    g <- fixture_gistic()
+    p <- g@Peaks
+    del <- p[["Unique.Name"]] == "Deletion Peak  1"
+    amp <- p[["Unique.Name"]] == "Amplification Peak  1"
+    p[del, "Wide.Peak.Limits"] <- p[amp, "Wide.Peak.Limits"]
+    g@Peaks <- p
+    se <- makeSummarizedExperimentFromGISTIC(g, "Peaks")
+    expect_identical(nrow(se), 2L)
+    expect_identical(rowData(se)[["type"]], c("Amplification", "Deletion"))
+    expect_identical(unname(assay(se)["Deletion Peak  1", ]), c(0L, 2L))
+})
+
+test_that("accmini Peaks rowData has no empty trailing column", {
+    ## BUG-10
     se <- makeSummarizedExperimentFromGISTIC(accmini, "Peaks")
-    expect_true("V100" %in% names(rowData(se)))
+    expect_false("V100" %in% names(rowData(se)))
+    ## a named column that happens to be blank is kept
+    expect_true("Broad.or.Focal" %in% names(rowData(se)))
+    expect_false(anyDuplicated(rownames(se)) > 0L)
+    expect_true(all(grepl("Peak +[0-9]+$", rownames(se))))
 })
 
 test_that("makeSummarizedExperimentFromGISTIC input validation", {

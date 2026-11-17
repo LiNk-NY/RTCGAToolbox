@@ -37,32 +37,19 @@ makeSummarizedExperimentFromGISTIC <-
         gist <- getGISTICPeaks(gistic, ...)
         if (!length(gist)) return(list())
         rel.cols <- grepl("^TCGA", colnames(gist))
-
-        gistData <- as.matrix(gist[, rel.cols])
+        gistData <- as.matrix(gist[, rel.cols, drop = FALSE])
         # get the peak type (amplification / deletion)
         peak.type <- vapply(strsplit(gist[["Unique.Name"]], " "),
             function(x) x[[1L]], character(1L))
-        rowdata <- cbind.data.frame(gist[, !rel.cols], type = peak.type,
-            stringsAsFactors = FALSE)
-        feats <- grepl("gene|ranges", names(rowdata), ignore.case = TRUE)
-        rows <- rowdata[, feats]
-        if (length(rows)) {
-            if (as.logical(anyDuplicated(rows))) {
-                uniq <- !duplicated(rows)
-                rows <- rows[uniq]
-                rowdata <- rowdata[uniq, ]
-                gistData <- gistData[uniq, ]
-                gist <- gist[uniq, , drop = FALSE]
-            }
-            rownames(rowdata) <- rows
-        }
-        rowranges <- gist[["rowRanges"]]
-        rowranges <- as(rowranges, "GRanges")
-        # get the peak type (amplification / deletion)
-        peak.type <- vapply(strsplit(gist[["Unique.Name"]], " "),
-            function(x) x[[1L]], character(1L))
-        # create the SE
-        gistData <- .toNumericMatrix(gistData, integer = TRUE, context = "GISTIC")
+        rowdata <- cbind.data.frame(gist[, !rel.cols, drop = FALSE],
+            type = peak.type, stringsAsFactors = FALSE)
+        ## peak names ('Amplification Peak  1', ...) are unique per file;
+        ## ranges are not (an amplification and a deletion peak can share
+        ## limits), so every peak is kept
+        rownames(gistData) <- gist[["Unique.Name"]]
+        rowranges <- as(gist[["rowRanges"]], "GRanges")
+        gistData <- .toNumericMatrix(gistData, integer = TRUE,
+            context = "GISTIC")
         gisticSE <- SummarizedExperiment(gistData,
             rowRanges = rowranges)
         rowData(gisticSE) <- rowdata

@@ -35,7 +35,16 @@ getGISTICPeaks <-
 
     gistic <- getData(object, "GISTIC", "Peaks")
 
-    validCols <- vapply(gistic, function(x) !all(is.na(x)), logical(1L))
+    ## drop all-NA columns, and the unnamed column created by the trailing
+    ## tab on every line (fread() names it 'V<n>' and fills it with "")
+    autoNamed <- grepl("^V[0-9]+$", names(gistic))
+    validCols <- vapply(seq_along(gistic), function(j) {
+        x <- gistic[[j]]
+        empty <- is.na(x)
+        if (autoNamed[[j]] && is.character(x))
+            empty <- empty | !nzchar(trimws(x))
+        !all(empty)
+    }, logical(1L))
     rel.rows <- grepl("Peak +[0-9]+$", gistic[["Unique.Name"]])
     gistic <- gistic[rel.rows, validCols]
 
