@@ -381,6 +381,9 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
           export.file <- .exportFiles(paste0(fh_url,i),dataset,"-Clinical.tar.gz","*.clin.merged.picked.txt$",FALSE,
                        "-Clinical.txt",FALSE,destdir,forceDownload,runDate)
           raw.clin <- read.delim(export.file,colClasses="character")
+          ## the 'Composite Element REF' row only holds the word 'value'
+          raw.clin <- raw.clin[raw.clin[[1L]] != "Composite Element REF", ,
+              drop = FALSE]
           df.clin <- data.frame(do.call(rbind, raw.clin[, -1]),stringsAsFactors = FALSE)
           colnames(df.clin) <- raw.clin[, 1]
           resultClass@clinical <- df.clin

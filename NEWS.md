@@ -55,6 +55,8 @@ available platforms) for a zero, negative or fractional `platform`.
 `36` and `37`) now fail with "Inconsistent genome builds found" instead of
 an obscure internal error. Equivalent labels (`37`, `GRCh37`, `hg19`) are
 treated as one build.
+* `getFirehoseData(clinical = TRUE)` no longer returns the
+`Composite Element REF` column, which only repeated the word "value".
 
 ## Changes in version 2.34.0
 

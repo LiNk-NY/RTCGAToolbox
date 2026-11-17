@@ -109,8 +109,10 @@ local({
         expect_identical(cl[["years_to_birth"]], c("58", "44"))
         expect_identical(cl[["vital_status"]], c("1", "0"))
         expect_identical(cl[["gender"]], c("male", "female"))
-        ## [BUG-09] header row leaks in as a constant column
-        expect_identical(cl[["Composite Element REF"]], c("value", "value"))
+        ## BUG-09: the 'Composite Element REF' header row is not a column
+        expect_identical(names(cl), c("years_to_birth", "vital_status",
+            "gender"))
+        ## patient ids stay as read.delim() names them (lower case, dots)
     })
 
     test_that("RNASeq2Gene: raw_count columns", {

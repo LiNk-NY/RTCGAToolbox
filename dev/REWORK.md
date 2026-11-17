@@ -44,7 +44,7 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-10 | M | `getGISTICPeaks`, Peaks SE | The empty trailing column (`V100`/`V12`, values `""`) survives the all-NA filter; Peaks SE row names are leftover data.frame indices instead of peak names. |
 | BUG-11 | M | `biocExtract` on segment/MAF data | Output class depends on the data: one sample (or identical ranges) -> RSE, otherwise RaggedExperiment. For single-sample MAFs, all 47 MAF columns become (character) assays. |
 | BUG-07 | M | `getFirehoseData` | `gistic2Date` check uses `&&`: any single string (e.g. `"20991231"`) passes. |
-| BUG-09 | M | `getFirehoseData(clinical)` | Header row leaks in as a constant `Composite Element REF` = `"value"` column; patient ids stay lower-case with dots. |
+| BUG-09 | M | `getFirehoseData(clinical)` | Header row leaks in as a constant `Composite Element REF` = `"value"` column (fixed); patient ids stay lower-case with dots (open: API decision, changing row names can break user code). |
 | BUG-20 | M | `getFirehoseData(Mutation)` | `merge()` of per-sample MAFs with different columns re-sorts rows. |
 | BUG-23 | R | `biocExtract` | Errors on a bare matrix (`.removeShell`) and on a non-ranged plain `data.frame` (`metadata()` on data.frame). |
 | BUG-25 | M | `.getBuild` | Mixed builds fail inside `TCGAutils::uniformBuilds()` with a cryptic vapply error; `.validateNCBI()` is unreachable. |
