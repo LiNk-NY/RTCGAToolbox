@@ -48,6 +48,7 @@ the peak names (e.g., `Amplification Peak  1`) instead of row indices; and
 peaks that share the same limits are no longer dropped.
 * `getFirehoseData(GISTIC = TRUE)` now rejects a `gistic2Date` that is
 not one of `getFirehoseAnalyzeDates()` before downloading anything.
+* `makeSummarizedExperimentFromGISTIC()` works with single-sample data.
 
 ## Changes in version 2.34.0
 

@@ -57,7 +57,7 @@ makeSummarizedExperimentFromGISTIC <-
         gist <- getData(gistic, "GISTIC", dataType)
         if (!length(gist)) return(list())
         rel.cols <- grepl("^TCGA", colnames(gist))
-        gistData <- as.matrix(gist[, rel.cols])
+        gistData <- as.matrix(gist[, rel.cols, drop = FALSE])
         annoteRowDF <- gist[, !rel.cols, drop = FALSE]
         anyduprows <- anyDuplicated(annoteRowDF[[rownameCol]])
         if (rownameCol %in% names(annoteRowDF) && !anyduprows)

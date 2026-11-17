@@ -123,6 +123,22 @@ test_that(".toNumericMatrix is strict and lossless", {
         matrix(numeric(0L), 0L, 2L))
 })
 
+test_that("makeSummarizedExperimentFromGISTIC works with a single sample", {
+    ## BUG-28: the sample column dropped to a vector and .stdIDs() failed
+    g <- fixture_gistic()
+    g@AllByGene <- g@AllByGene[, 1:4]
+    g@ThresholdedByGene <- g@ThresholdedByGene[, 1:4]
+    se <- makeSummarizedExperimentFromGISTIC(g, "AllByGene")
+    expect_identical(assay(se), matrix(c(0.03, 0.125, -0.5), 3L,
+        dimnames = list(c("ACAP3", "AGRN", "TP53"), GBC[1L])))
+    se <- makeSummarizedExperimentFromGISTIC(g, "ThresholdedByGene")
+    expect_identical(unname(assay(se)[, 1L]), c(0L, 1L, -2L))
+    g@Peaks <- g@Peaks[, names(g@Peaks) != gsub("-", ".", GBC[2L])]
+    se <- makeSummarizedExperimentFromGISTIC(g, "Peaks")
+    expect_identical(colnames(se), GBC[1L])
+    expect_identical(unname(assay(se)[, 1L]), c(2L, 0L))
+})
+
 test_that("makeSummarizedExperimentFromGISTIC duplicated symbols keep rows", {
     g <- fixture_gistic()
     g@AllByGene[["Gene.Symbol"]][2L] <- "ACAP3"
