@@ -72,7 +72,7 @@ bioc324-index-20261104).
 - [x] BUG-03 / BUG-04: merge platforms by row name, never by position;
       never drop data silently.
 - [x] BUG-02: numeric GISTIC assays.
-- [ ] BUG-05 / BUG-26 / BUG-06: rewrite `.makeExprMat` (explicit header
+- [x] BUG-05 / BUG-26 / BUG-06: rewrite `.makeExprMat` (explicit header
       handling per file type; keep or disambiguate duplicated symbols).
 - [ ] BUG-01: deterministic `.stdIDs`.
 - [ ] BUG-24, BUG-23, BUG-17, BUG-10, BUG-07, then the M-level items.

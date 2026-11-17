@@ -1,40 +1,61 @@
 #' @importFrom data.table fread
-.makeExprMat <- function(file, normMethod, dataType, mergeSize = 1000, arrayData = FALSE)
+## Read a Firehose expression matrix.
+##
+## 'headerRows' is the number of header lines: 2 for the 'Merge_*' files
+## (sample barcodes, then the measurement type of each column), 1 for the
+## mRNAseq_Preprocess files. Row 1 always holds the sample identifiers.
+## With 'arrayData = FALSE' only the columns whose measurement type (row 2)
+## starts with 'normMethod' are kept; otherwise every data column is.
+## Rows whose identifier contains '?|' (no gene symbol) are dropped. Gene
+## symbols are taken from 'SYMBOL|ENTREZ' identifiers; when a symbol occurs
+## more than once, those rows keep the full identifier so no gene is lost.
+.makeExprMat <- function(file, normMethod, dataType, mergeSize = 1000,
+    arrayData = FALSE, headerRows = 2L)
 {
-  #Get selected type only
-  tmpCols = read.delim(file,nrows=1,colClasses="character")
-  if (!arrayData) {
-    colOrder <- 1:ncol(tmpCols)
-    colOrder <- colOrder[startsWith(unlist(tmpCols[1, ]), normMethod)]
-  } else {
-    colOrder <- 2:ncol(tmpCols)
-  }
-  #closeAllConnections()
-  message(paste(dataType,"data will be imported! This may take a while!",sep=" "))
-  message(paste0("Start: ",Sys.time()))
-  tmpMat <- fread(file,header=FALSE,colClasses = "character", select=c(1,colOrder), data.table = FALSE)
-  message(paste0("Done: " ,Sys.time()))
-  #closeAllConnections()
-  if (!arrayData) {
-    colnames(tmpMat) <- tmpMat[1,]
-  } else {
-    colnames(tmpMat) <- c("Symbol",tmpMat[1,2:ncol(tmpMat)])
-  }
-  tmpMat <- tmpMat[-c(1:2),]
-  removeQM <- grepl("\\?\\|",tmpMat[,1])
-  tmpMat <- tmpMat[!removeQM,]
-  names1 <- tmpMat[,1]
-  names2 <- sapply(names1,function(x) {unlist(strsplit(x,"\\|"))[1]})
-  names1 <- duplicated(names2)
-  tmpMat <- tmpMat[!names1,]
-  rownames(tmpMat) <- names2[!names1]
-  tmpMat <- tmpMat[,-1]
-  cNames <- colnames(tmpMat)
-  rNames <- rownames(tmpMat)
-  tmpMat <- apply(tmpMat,2,as.numeric)
-  colnames(tmpMat) <- cNames
-  rownames(tmpMat) <- rNames
-  return(tmpMat)
+    if (!arrayData && headerRows != 2L)
+        stop("Column selection by 'normMethod' requires two header rows")
+    hdr <- strsplit(readLines(file, n = headerRows), "\t", fixed = TRUE)
+    if (length(hdr) < headerRows)
+        stop("File has fewer than ", headerRows, " header lines: ", file)
+    if (arrayData) {
+        dataCols <- seq_along(hdr[[1L]])[-1L]
+    } else {
+        dataCols <- which(startsWith(hdr[[2L]], normMethod))
+        dataCols <- dataCols[dataCols > 1L]
+    }
+    if (!length(dataCols))
+        stop("No data columns found",
+            if (!arrayData) paste0(" for '", normMethod, "'"),
+            " in ", basename(file))
+    samples <- hdr[[1L]][dataCols]
+
+    message(dataType, " data will be imported! This may take a while!")
+    message("Start: ", Sys.time())
+    dat <- fread(file, sep = "\t", header = FALSE, skip = headerRows,
+        select = c(1L, dataCols), colClasses = "character",
+        data.table = FALSE)
+    message("Done: ", Sys.time())
+
+    ids <- dat[[1L]]
+    keep <- !grepl("?|", ids, fixed = TRUE)
+    mat <- .toNumericMatrix(
+        as.matrix(dat[keep, -1L, drop = FALSE]), context = dataType
+    )
+    dimnames(mat) <- list(.geneRowNames(ids[keep]), samples)
+    mat
+}
+
+## 'SYMBOL|ENTREZ' -> 'SYMBOL', keeping the full identifier for every
+## member of a group of duplicated symbols.
+.geneRowNames <- function(ids) {
+    syms <- sub("\\|.*$", "", ids)
+    dups <- syms %in% syms[duplicated(syms)]
+    syms[dups] <- ids[dups]
+    if (anyDuplicated(syms))
+        warning("Duplicated row identifiers: ",
+            paste(utils::head(unique(syms[duplicated(syms)]), 5L),
+                collapse = ", "), call. = FALSE)
+    syms
 }
 
 #' @importFrom utils setTxtProgressBar
@@ -444,7 +465,10 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
         )
             new("FirehosemRNAArray",Filename=i,
                 DataMatrix=.makeExprMat(export.file,
-                    RNAseq2Norm,"RNAseq2",mergeSize=1000,arrayData=TRUE))
+                    RNAseq2Norm,"RNAseq2",mergeSize=1000,arrayData=TRUE,
+                    headerRows =
+                        if (identical(RNAseq2Norm, "normalized_counts")) 2L
+                        else 1L))
       })
       # res <- res[[which.max(vapply(res, ncol, integer(1L)))]]
       resultClass@RNASeq2GeneNorm <- res

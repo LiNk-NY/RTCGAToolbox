@@ -624,3 +624,28 @@
         object[[i]] <- biocExtract(object[[i]], type)
     return(object)
 }
+
+## Convert a character matrix read with colClasses = "character" to numeric
+## without losing information. "", "NA" and "null" (used by Firehose array
+## files) become NA; any other value that is not a number is an error
+## rather than a silent NA. With 'integer = TRUE' the result is integer
+## when every value is a whole number, otherwise double.
+.toNumericMatrix <- function(m, integer = FALSE, context = "the") {
+    if (is.numeric(m))
+        return(m)
+    vals <- as.vector(m)
+    vals[vals %in% c("", "NA", "null")] <- NA_character_
+    num <- suppressWarnings(as.numeric(vals))
+    bad <- is.na(num) & !is.na(vals)
+    if (any(bad))
+        stop("Non-numeric values in ", context, " data: ",
+            paste(utils::head(unique(vals[bad]), 5L), collapse = ", "),
+            call. = FALSE)
+    fin <- num[is.finite(num)]
+    if (integer && all(fin == round(fin)) &&
+            all(abs(fin) <= .Machine[["integer.max"]]))
+        num <- as.integer(num)
+    dim(num) <- dim(m)
+    dimnames(num) <- dimnames(m)
+    num
+}

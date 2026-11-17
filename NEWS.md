@@ -15,6 +15,16 @@ data now return numeric assays: double for `AllByGene`, integer for
 `ThresholdedByGene` and `Peaks` (double if any value is not whole).
 Previously the assays were character matrices. Values that are not
 numbers now raise an error instead of being coerced.
+* `getFirehoseData()` no longer drops genes that share a gene symbol
+(e.g., `SLC35E2|728661` and `SLC35E2|9906` in RNA-seq data). Such rows
+keep their full `SYMBOL|ENTREZID` identifier as the row name; all other
+row names are unchanged. Previously only the first gene was kept.
+* `getFirehoseData(RNAseq2Norm = ...)` with a non-default value (files from
+`mRNAseq_Preprocess`) no longer drops the first gene of the matrix.
+* Expression data with a single gene or a single sample are now read
+correctly instead of failing.
+* Missing values written as `null` in array data become `NA` without a
+coercion warning; any other non-numeric value is now an error.
 
 ## Changes in version 2.34.0
 

@@ -62,7 +62,7 @@ makeSummarizedExperimentFromGISTIC <-
         peak.type <- vapply(strsplit(gist[["Unique.Name"]], " "),
             function(x) x[[1L]], character(1L))
         # create the SE
-        gistData <- .gisticToNumeric(gistData, integer = TRUE)
+        gistData <- .toNumericMatrix(gistData, integer = TRUE, context = "GISTIC")
         gisticSE <- SummarizedExperiment(gistData,
             rowRanges = rowranges)
         rowData(gisticSE) <- rowdata
@@ -76,34 +76,11 @@ makeSummarizedExperimentFromGISTIC <-
         if (rownameCol %in% names(annoteRowDF) && !anyduprows)
             rownames(gistData) <- annoteRowDF[[rownameCol]]
         colnames(gistData) <- .stdIDs(colnames(gistData))
-        gistData <- .gisticToNumeric(gistData,
-            integer = identical(dataType, "ThresholdedByGene"))
+        gistData <- .toNumericMatrix(gistData,
+            integer = identical(dataType, "ThresholdedByGene"),
+            context = "GISTIC")
         gisticSE <- SummarizedExperiment(gistData, rowData = annoteRowDF)
     }
     gisticSE
 }
 
-## GISTIC tables are read as character; convert the sample columns of the
-## assay without losing information. Empty strings and "NA" become NA; any
-## other value that is not a number is an error rather than a silent NA.
-## With 'integer = TRUE' (thresholded calls, peak calls) the result is
-## integer when every value is a whole number, otherwise double.
-.gisticToNumeric <- function(m, integer = FALSE) {
-    if (is.numeric(m))
-        return(m)
-    vals <- trimws(m)
-    vals[vals %in% c("", "NA")] <- NA_character_
-    num <- suppressWarnings(as.numeric(vals))
-    bad <- is.na(num) & !is.na(vals)
-    if (any(bad))
-        stop("Non-numeric values in GISTIC data: ",
-            paste(utils::head(unique(vals[bad]), 5L), collapse = ", "),
-            call. = FALSE)
-    fin <- num[is.finite(num)]
-    if (integer && all(fin == round(fin)) &&
-            all(abs(fin) <= .Machine[["integer.max"]]))
-        num <- as.integer(num)
-    dim(num) <- dim(m)
-    dimnames(num) <- dimnames(m)
-    num
-}

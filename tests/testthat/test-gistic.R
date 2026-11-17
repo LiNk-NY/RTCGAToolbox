@@ -99,18 +99,24 @@ test_that("GISTIC assays are numeric and match the fixture text", {
     expect_identical(unname(ta), unname(array(as.integer(raw), dim(raw))))
 })
 
-test_that(".gisticToNumeric is strict and lossless", {
+test_that(".toNumericMatrix is strict and lossless", {
     m <- matrix(c("1", " 2", "", "NA"), 2, dimnames = list(c("a", "b"), NULL))
-    expect_identical(ns$.gisticToNumeric(m, integer = TRUE),
+    expect_identical(ns$.toNumericMatrix(m, integer = TRUE),
         matrix(c(1L, 2L, NA, NA), 2, dimnames = list(c("a", "b"), NULL)))
-    expect_identical(ns$.gisticToNumeric(m), matrix(c(1, 2, NA, NA), 2,
+    expect_identical(ns$.toNumericMatrix(m), matrix(c(1, 2, NA, NA), 2,
         dimnames = list(c("a", "b"), NULL)))
+    ## Firehose arrays write missing values as 'null'
+    expect_identical(ns$.toNumericMatrix(matrix(c("null", "-0.5"))),
+        matrix(c(NA, -0.5)))
     ## non-whole values are never truncated
-    expect_identical(ns$.gisticToNumeric(matrix(c("1", "1.5")), integer = TRUE),
+    expect_identical(ns$.toNumericMatrix(matrix(c("1", "1.5")), integer = TRUE),
         matrix(c(1, 1.5)))
-    expect_error(ns$.gisticToNumeric(matrix(c("1", "amp"))),
+    expect_error(
+        ns$.toNumericMatrix(matrix(c("1", "amp")), context = "GISTIC"),
         "Non-numeric values in GISTIC data: amp")
-    expect_identical(ns$.gisticToNumeric(matrix(1:2)), matrix(1:2))
+    expect_identical(ns$.toNumericMatrix(matrix(1:2)), matrix(1:2))
+    expect_identical(ns$.toNumericMatrix(matrix(character(0L), 0L, 2L)),
+        matrix(numeric(0L), 0L, 2L))
 })
 
 test_that("makeSummarizedExperimentFromGISTIC duplicated symbols keep rows", {

@@ -109,12 +109,12 @@ local({
 
     test_that("RNASeq2Gene: raw_count columns", {
         m <- x@RNASeq2Gene
-        expect_identical(dimnames(m), list(c("A1BG", "A2M", "SLC35E2"),
-            unname(BC[c("S1", "S2")])))
-        expect_identical(m[, BC[["S1"]]], c(A1BG = 197, A2M = 5000.5,
-            SLC35E2 = 11))
-        expect_identical(m[, BC[["S2"]]], c(A1BG = 23.84, A2M = 10,
-            SLC35E2 = 12))
+        rn <- c("A1BG", "A2M", "SLC35E2|728661", "SLC35E2|9906")
+        expect_identical(dimnames(m), list(rn, unname(BC[c("S1", "S2")])))
+        expect_identical(m[, BC[["S1"]]],
+            setNames(c(197, 5000.5, 11, 99), rn))
+        expect_identical(m[, BC[["S2"]]],
+            setNames(c(23.84, 10, 12, 98), rn))
     })
 
     test_that("RNASeq2GeneNorm: list of FirehosemRNAArray", {
@@ -264,15 +264,17 @@ test_that("RNAseq2Norm = RSEM_normalized_log2 reads mRNAseq_Preprocess", {
     expect_false(any(m == -999, na.rm = TRUE))
     expect_identical(m["TP53", ], setNames(c(10.25, 11.5), PBC))
     expect_identical(m["A2M", ], setNames(c(2.5, NA), PBC))
-    ## [BUG-26] these files have ONE header row but two rows are dropped:
-    ## the first data row (A1BG) is lost
-    expect_false("A1BG" %in% rownames(m))
-    expect_identical(rownames(m), c("A2M", "TP53"))
+    ## BUG-26: these files have one header row; the first data row (A1BG)
+    ## used to be dropped
+    expect_identical(m["A1BG", ],
+        setNames(c(1.7075689633722, 1.42304025336151), PBC))
+    expect_identical(rownames(m), c("A1BG", "A2M", "TP53"))
 
     y <- fetch("RNASeq2GeneNorm", dest, RNAseq2Norm = "raw_counts")
     m <- y@RNASeq2GeneNorm[[1L]]@DataMatrix
     expect_identical(m["TP53", ], setNames(c(300, 400), PBC))
-    expect_identical(rownames(m), c("A2M", "TP53"))
+    expect_identical(m["A1BG", ], setNames(c(6.8, 6.66), PBC))
+    expect_identical(rownames(m), c("A1BG", "A2M", "TP53"))
     expect_error(fetch("RNASeq2GeneNorm", dest, RNAseq2Norm = "bogus"))
 })
 
