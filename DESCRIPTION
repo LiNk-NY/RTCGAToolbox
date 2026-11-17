@@ -44,7 +44,10 @@ Suggests:
     Homo.sapiens,
     knitr,
     readr,
-    rmarkdown
+    rmarkdown,
+    testthat (>= 3.0.0),
+    withr
+Config/testthat/edition: 3
 biocViews: DifferentialExpression, GeneExpression, Sequencing
 URL: http://mksamur.github.io/RTCGAToolbox/
 BugReports: https://github.com/mksamur/RTCGAToolbox/issues
