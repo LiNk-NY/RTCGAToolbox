@@ -53,7 +53,9 @@ An S4 class to store main data object from clinent function.
 \code{FirehoseData}
 
 \item \code{updateObject(FirehoseData)}: Update an old RTCGAToolbox FirehoseData object to
-the most recent API
+the most recent API. Clinical data from versions before 2.44.0 get
+standard patient barcodes as row names (\code{tcga.or.a5j1} becomes
+\code{TCGA-OR-A5J1}) and lose the \verb{Composite Element REF} column.
 
 \item \code{selectType(FirehoseData)}: Extract data type
 
@@ -67,7 +69,8 @@ the most recent API
 
 \item{\code{gistic2Date}}{Analyze running date from \link{getFirehoseAnalyzeDates}}
 
-\item{\code{clinical}}{clinical data frame}
+\item{\code{clinical}}{clinical data frame, one row per patient, with patient
+barcodes (e.g., \code{TCGA-OR-A5J1}) as row names}
 
 \item{\code{RNASeqGene}}{Gene level expression data matrix from RNAseq}
 

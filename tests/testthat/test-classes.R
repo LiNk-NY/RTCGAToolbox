@@ -104,6 +104,40 @@ test_that("DGEResult / CorResult showResults return the tables", {
         c("Dataset:ACC\n", "CorResult object, dim: 8\t2\n"))
 })
 
+test_that("accmini clinical data use patient barcodes", {
+    expect_identical(head(rownames(accmini@clinical), 2L),
+        c("TCGA-OR-A5K0", "TCGA-OR-A5KP"))
+    expect_false("Composite Element REF" %in% names(accmini@clinical))
+    expect_identical(dim(accmini@clinical), c(92L, 17L))
+})
+
+test_that("updateObject converts clinical data from before 2.44.0", {
+    old <- accmini
+    oldcl <- data.frame(`Composite Element REF` = c("value", "value"),
+        years_to_birth = c("58", "44"), check.names = FALSE,
+        row.names = c("tcga.or.a5j1", "tcga.or.a5j2"))
+    old@clinical <- oldcl
+    expect_true(ns$.hasOldClinical(old))
+    up <- updateObject(old)
+    expect_identical(up@clinical, data.frame(years_to_birth = c("58", "44"),
+        row.names = c("TCGA-OR-A5J1", "TCGA-OR-A5J2")))
+    for (s in setdiff(slotNames(old), "clinical"))
+        expect_identical(slot(up, s), slot(old, s), info = s)
+    expect_identical(updateObject(up), up)
+
+    ## a 'Composite Element REF' column with real content is kept
+    keep <- old
+    keep@clinical[["Composite Element REF"]] <- c("value", "x")
+    expect_true("Composite Element REF" %in%
+        names(updateObject(keep)@clinical))
+    ## non-TCGA ids and empty clinical data are left alone
+    other <- accmini
+    other@clinical <- data.frame(a = 1:2, row.names = c("p1", "p2"))
+    expect_false(ns$.hasOldClinical(other))
+    empty <- new("FirehoseData", Dataset = "X")
+    expect_identical(updateObject(empty), empty)
+})
+
 test_that("updateObject is a no-op on current objects", {
     expect_identical(updateObject(accmini), accmini)
     expect_identical(updateObject(accmini@GISTIC), accmini@GISTIC)
@@ -111,4 +145,5 @@ test_that("updateObject is a no-op on current objects", {
         collapse = ""), "updateObject\\(object = 'FirehoseData'\\)")
     expect_false(ns$.hasOldAPI(accmini))
     expect_false(ns$.hasOldGISTIC(accmini@GISTIC))
+    expect_false(ns$.hasOldClinical(accmini))
 })

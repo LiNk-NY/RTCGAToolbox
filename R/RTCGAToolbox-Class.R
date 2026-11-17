@@ -99,7 +99,8 @@ setMethod("isEmpty", "FirehoseGISTIC", function(x) {
 #' @slot Dataset A cohort name
 #' @slot runDate Standard data run date from [getFirehoseRunningDates]
 #' @slot gistic2Date Analyze running date from [getFirehoseAnalyzeDates]
-#' @slot clinical clinical data frame
+#' @slot clinical clinical data frame, one row per patient, with patient
+#'   barcodes (e.g., `TCGA-OR-A5J1`) as row names
 #' @slot RNASeqGene Gene level expression data matrix from RNAseq
 #' @slot RNASeq2Gene Gene level expression data matrix from RNAseqV2
 #' @slot RNASeq2GeneNorm Gene level expression data matrix from RNAseqV2 (RSEM)
@@ -328,12 +329,36 @@ setMethod("showResults", "CorResult",function(object){
     !isTRUE(methods::.hasSlot(object, "RNASeq2Gene"))
 }
 
+## clinical data from before 2.44.0: lower-case dotted patient ids
+## ('tcga.or.a5j1') and a 'Composite Element REF' column of 'value'
+.hasOldClinical <- function(object) {
+    cl <- object@clinical
+    any(startsWith(rownames(cl), "tcga.")) ||
+        .isRefColumn(cl)
+}
+
+.isRefColumn <- function(cl) {
+    ref <- cl[["Composite Element REF"]]
+    !is.null(ref) && all(ref %in% "value")
+}
+
+.updateClinical <- function(cl) {
+    if (.isRefColumn(cl))
+        cl <- cl[, names(cl) != "Composite Element REF", drop = FALSE]
+    ids <- .clinicalIDs(rownames(cl))
+    if (!anyDuplicated(ids))
+        rownames(cl) <- ids
+    cl
+}
+
 .hasOldGISTIC <- function(object) {
     isTRUE(methods::.hasSlot(object, "ThresholedByGene"))
 }
 
 #' @describeIn FirehoseData Update an old RTCGAToolbox FirehoseData object to
-#'   the most recent API
+#'   the most recent API. Clinical data from versions before 2.44.0 get
+#'   standard patient barcodes as row names (`tcga.or.a5j1` becomes
+#'   `TCGA-OR-A5J1`) and lose the `Composite Element REF` column.
 #'
 #' @param verbose logical (default FALSE) whether to print extra messages
 #' @param ... additional arguments for updateObject
@@ -368,6 +393,8 @@ setMethod("updateObject", "FirehoseData",
     if (oldGISTIC) {
        object@GISTIC <- updateObject(getElement(object, "GISTIC"))
     }
+    if (.hasOldClinical(object))
+        object@clinical <- .updateClinical(object@clinical)
     return(object)
 })
 

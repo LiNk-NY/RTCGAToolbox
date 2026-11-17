@@ -58,6 +58,23 @@
     syms
 }
 
+## Transpose a Firehose clin.merged.picked table (attributes in rows,
+## patients in columns) to one row per patient, named by standard barcode.
+.clinicalFrame <- function(raw.clin) {
+    vals <- t(as.matrix(raw.clin[, -1L, drop = FALSE]))
+    ids <- .clinicalIDs(rownames(vals))
+    if (anyDuplicated(ids)) {
+        warning("Duplicated patient identifiers in clinical data: ",
+            paste(unique(ids[duplicated(ids)]), collapse = ", "),
+            call. = FALSE)
+        ids <- make.unique(ids)
+    }
+    df.clin <- data.frame(vals, stringsAsFactors = FALSE,
+        check.names = FALSE)
+    dimnames(df.clin) <- list(ids, raw.clin[[1L]])
+    df.clin
+}
+
 ## Stack per-sample MAF tables in file order. Files whose columns differ
 ## are bound by column name and missing columns are filled with NA (a row
 ## union, never a join on shared columns).
@@ -392,13 +409,12 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
         {
           export.file <- .exportFiles(paste0(fh_url,i),dataset,"-Clinical.tar.gz","*.clin.merged.picked.txt$",FALSE,
                        "-Clinical.txt",FALSE,destdir,forceDownload,runDate)
-          raw.clin <- read.delim(export.file,colClasses="character")
+          raw.clin <- read.delim(export.file, colClasses = "character",
+              check.names = FALSE)
           ## the 'Composite Element REF' row only holds the word 'value'
           raw.clin <- raw.clin[raw.clin[[1L]] != "Composite Element REF", ,
               drop = FALSE]
-          df.clin <- data.frame(do.call(rbind, raw.clin[, -1]),stringsAsFactors = FALSE)
-          colnames(df.clin) <- raw.clin[, 1]
-          resultClass@clinical <- df.clin
+          resultClass@clinical <- .clinicalFrame(raw.clin)
           gc()
         }
       }

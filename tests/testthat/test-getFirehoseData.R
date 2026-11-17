@@ -105,14 +105,14 @@ local({
 
     test_that("clinical: one row per patient, attributes as columns", {
         cl <- x@clinical
-        expect_identical(rownames(cl), c("tcga.or.a5j1", "tcga.or.a5j2"))
+        ## BUG-09: standard patient barcodes, not 'tcga.or.a5j1'
+        expect_identical(rownames(cl), c("TCGA-OR-A5J1", "TCGA-OR-A5J2"))
         expect_identical(cl[["years_to_birth"]], c("58", "44"))
         expect_identical(cl[["vital_status"]], c("1", "0"))
         expect_identical(cl[["gender"]], c("male", "female"))
         ## BUG-09: the 'Composite Element REF' header row is not a column
         expect_identical(names(cl), c("years_to_birth", "vital_status",
             "gender"))
-        ## patient ids stay as read.delim() names them (lower case, dots)
     })
 
     test_that("RNASeq2Gene: raw_count columns", {

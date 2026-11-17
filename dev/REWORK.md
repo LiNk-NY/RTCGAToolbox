@@ -44,7 +44,7 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-10 | M | `getGISTICPeaks`, Peaks SE | The empty trailing column (`V100`/`V12`, values `""`) survives the all-NA filter; Peaks SE row names are leftover data.frame indices instead of peak names. |
 | BUG-11 | M | `biocExtract` on segment/MAF data | Output class depends on the data: one sample (or identical ranges) -> RSE, otherwise RaggedExperiment. For single-sample MAFs, all 47 MAF columns become (character) assays. |
 | BUG-07 | M | `getFirehoseData` | `gistic2Date` check uses `&&`: any single string (e.g. `"20991231"`) passes. |
-| BUG-09 | M | `getFirehoseData(clinical)` | Header row leaks in as a constant `Composite Element REF` = `"value"` column (fixed); patient ids stay lower-case with dots (open: API decision, changing row names can break user code). |
+| BUG-09 | M | `getFirehoseData(clinical)` | Header row leaks in as a constant `Composite Element REF` = `"value"` column (fixed); patient ids are now standard barcodes (`TCGA-OR-A5J1`); `updateObject()` converts old objects and `accmini` was regenerated (decision: follow other software). |
 | BUG-20 | D | `getFirehoseData(Mutation)` | `merge()` of per-sample MAFs with different columns is a join on all shared columns: rows are re-sorted, and rows identical in the shared columns are collapsed with values copied between them (3 rows -> 2 in the test). Fixed: row union via `rbindlist(fill = TRUE)`. |
 | BUG-23 | R | `biocExtract` | Errors on a bare matrix (`.removeShell`) and on a non-ranged plain `data.frame` (`metadata()` on data.frame). |
 | BUG-25 | M | `.getBuild` | Mixed builds fail inside `TCGAutils::uniformBuilds()` with a cryptic vapply error; `.validateNCBI()` is unreachable. |
@@ -99,7 +99,7 @@ alignment).
 - [x] BUG-17: record GRCh37 for CNASNP/CNVSNP from FirehoseData.
 - [x] BUG-10: GISTIC Peaks column filter, row names, no dedup by range.
 - [x] BUG-07: gistic2Date validation.
-- [x] BUG-09 (junk column), BUG-12, BUG-13, BUG-16, BUG-20, BUG-25, BUG-28.
+- [x] BUG-09 (junk column, patient barcodes), BUG-12, BUG-13, BUG-16, BUG-20, BUG-25, BUG-28.
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [ ] Remove dead internals.

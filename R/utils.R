@@ -24,6 +24,15 @@
     sampleBarcode
 }
 
+## Firehose clinical files name patients in lower case ('tcga-or-a5j1');
+## objects made before 2.44.0 hold the read.delim() names ('tcga.or.a5j1').
+## Both become standard barcodes ('TCGA-OR-A5J1'); other ids are unchanged.
+.clinicalIDs <- function(ids) {
+    isTCGA <- grepl("^tcga[-.]", ids, ignore.case = TRUE)
+    ids[isTCGA] <- toupper(gsub(".", "-", ids[isTCGA], fixed = TRUE))
+    ids
+}
+
 .standardizeBC <- function(x) {
     colnames(x) <- .stdIDs(colnames(x))
     return(x)

@@ -1,5 +1,18 @@
 ## Changes in version 2.44.0
 
+### Significant user-visible changes
+
+* Clinical data from `getFirehoseData()` now use standard patient
+barcodes as row names (`TCGA-OR-A5J1`) instead of the lower-case,
+dot-separated names made by `read.delim()` (`tcga.or.a5j1`). They now match
+the sample barcodes used elsewhere, e.g. in `biocExtract()` output and
+`TCGAutils::TCGAbarcode()`. Function arguments and the `clinical` slot are
+unchanged. `updateObject()` converts objects saved with earlier versions,
+and the `accmini` example data were updated this way; only the clinical
+row names and the `Composite Element REF` column changed. Code that looks
+patients up by the old names can use `toupper(gsub(".", "-", x, fixed =
+TRUE))` to convert them.
+
 ### Bug fixes and minor improvements
 
 * `biocExtract()` now aligns rows by name when it combines array files
@@ -46,6 +59,8 @@ converted to factor codes.
 removed by `getGISTICPeaks()`; the `SummarizedExperiment` row names are now
 the peak names (e.g., `Amplification Peak  1`) instead of row indices; and
 peaks that share the same limits are no longer dropped.
+* Clinical data with a single patient now come back as one row; the
+values were previously spread over one row per attribute.
 * `getFirehoseData(GISTIC = TRUE)` now rejects a `gistic2Date` that is
 not one of `getFirehoseAnalyzeDates()` before downloading anything.
 * `makeSummarizedExperimentFromGISTIC()` works with single-sample data.

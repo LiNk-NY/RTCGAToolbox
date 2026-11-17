@@ -48,6 +48,40 @@ test_that(".stdIDs handles NA and empty input", {
     expect_identical(ns$.stdIDs(c("TCGA.A1", NA)), c("TCGA.A1", NA))
 })
 
+test_that(".clinicalIDs gives standard patient barcodes", {
+    expect_identical(ns$.clinicalIDs(c("tcga-or-a5j1", "tcga.or.a5j2",
+        "TCGA-OR-A5J3")), c("TCGA-OR-A5J1", "TCGA-OR-A5J2", "TCGA-OR-A5J3"))
+    ## only TCGA ids change
+    expect_identical(ns$.clinicalIDs(c("p.1", "tcga.or.a5j1")),
+        c("p.1", "TCGA-OR-A5J1"))
+    expect_identical(ns$.clinicalIDs(character(0L)), character(0L))
+})
+
+test_that(".clinicalFrame transposes clinical tables", {
+    raw <- data.frame(`Hybridization REF` = c("years_to_birth", "gender"),
+        `tcga-or-a5j1` = c("58", "male"), `tcga-or-a5j2` = c("44", NA),
+        check.names = FALSE)
+    expect_identical(ns$.clinicalFrame(raw),
+        data.frame(years_to_birth = c("58", "44"), gender = c("male", NA),
+            row.names = c("TCGA-OR-A5J1", "TCGA-OR-A5J2")))
+    ## a single patient or a single attribute keeps its shape
+    one <- ns$.clinicalFrame(raw[, 1:2])
+    expect_identical(dim(one), c(1L, 2L))
+    expect_identical(rownames(one), "TCGA-OR-A5J1")
+    expect_identical(ns$.clinicalFrame(raw[1L, ]),
+        data.frame(years_to_birth = c("58", "44"),
+            row.names = c("TCGA-OR-A5J1", "TCGA-OR-A5J2")))
+    ## attribute names are kept as they are
+    odd <- raw
+    odd[[1L]] <- c("a b", "1x")
+    expect_identical(names(ns$.clinicalFrame(odd)), c("a b", "1x"))
+    ## ids that collide after standardisation are kept, with a warning
+    dup <- raw
+    names(dup)[3L] <- "tcga.or.a5j1"
+    expect_warning(res <- ns$.clinicalFrame(dup), "TCGA-OR-A5J1")
+    expect_identical(rownames(res), c("TCGA-OR-A5J1", "TCGA-OR-A5J1.1"))
+})
+
 test_that(".standardizeBC standardises column names only", {
     m <- matrix(1:4, 2, dimnames = list(c("a.b", "c.d"),
         c("TCGA.A1.0001.01A", "TCGA.A1.0002.01A")))
