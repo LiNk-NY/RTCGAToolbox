@@ -22,6 +22,7 @@ License: GPL-2
 Depends:
     R (>= 4.3.0)
 Imports:
+    BiocBaseUtils,
     BiocGenerics,
     data.table,
     DelayedArray,
@@ -55,6 +56,7 @@ RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)
 Collate: 
     'RTCGAToolbox-Class.R'
+    'RTCGAToolbox-deprecated.R'
     'RTCGAToolbox.R'
     'utils.R'
     'biocExtract.R'

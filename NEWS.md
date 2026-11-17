@@ -29,6 +29,13 @@ their names. CNACGH files are now cached as
 `<runDate>-<dataset>-CNACGH-<platform>.txt` instead of numbering them by
 position; files cached by earlier versions are downloaded again.
 
+* The `getUUIDs` argument of `getFirehoseData()` is deprecated. The
+barcode to UUID service it used (`tcga-data.nci.nih.gov`) was retired in
+2016, so `getUUIDs = TRUE` could only fail, after all downloads had
+finished. It now gives a deprecation warning up front and is otherwise
+ignored. Use `TCGAutils::barcodeToUUID()` instead; see
+`help("RTCGAToolbox-deprecated")`.
+
 ### Bug fixes and minor improvements
 
 * `biocExtract()` now aligns rows by name when it combines array files

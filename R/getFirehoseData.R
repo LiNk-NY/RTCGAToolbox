@@ -337,7 +337,9 @@
 #'   Defaults to a cache directory given by `RTCGAToolbox:::.setCache()`.
 #' @param fileSizeLimit Files that are larger than set value (megabyte) won't be
 #'   downloaded (Default: 500)
-#' @param getUUIDs Logical key to get UUIDs from barcode (Default: FALSE)
+#' @param getUUIDs Deprecated. Logical (default FALSE). The barcode to UUID
+#'   service it used was retired; `TRUE` gives a warning and is ignored. See
+#'   [RTCGAToolbox-deprecated].
 #' @param ... Additional arguments to pass down.
 #'
 #' @return A `FirehoseData` data object that stores data for selected data types.
@@ -368,6 +370,9 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     ),
     forceDownload=FALSE, destdir=.setCache(),
     fileSizeLimit=500, getUUIDs=FALSE, ...) {
+  ## the UUID web service was retired in 2016 (BUG-15)
+  if (isTRUE(getUUIDs))
+      .lifeCycleArg("getFirehoseData", "getUUIDs = TRUE")
   #check input parameters
   if (!is.character(dataset) || is.null(dataset) || !length(dataset) == 1 || nchar(dataset) < 2) {
       stop('Please set "dataset" parameter! You should specify one dataset name. Ex: dataset="BRCA"...')
@@ -902,9 +907,6 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     }
   }
 
-  if (getUUIDs) {
-    resultClass@BarcodeUUID <- .barcodeUUID(resultClass)
-  }
   return(resultClass)
 }
 

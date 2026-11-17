@@ -258,6 +258,28 @@ local({
 
 ## ---- other options ----------------------------------------------------
 
+test_that("getUUIDs = TRUE is deprecated and ignored", {
+    ## BUG-15: the UUID service was retired in 2016
+    cnt <- local_fake_firehose(fh)
+    dest <- withr::local_tempdir()
+    local_mocked_bindings(.barcodeUUID = function(...)
+        stop("the retired UUID service must not be called"))
+    args <- list(dataset = FH_DATASET, clinical = TRUE, Mutation = TRUE,
+        destdir = dest)
+    x <- quiet(do.call(getFirehoseData, args))
+    w <- expect_warning(
+        y <- quiet(do.call(getFirehoseData, c(args, getUUIDs = TRUE))),
+        class = "deprecatedWarning")
+    expect_match(conditionMessage(w),
+        "'getFirehoseData(getUUIDs = TRUE)' is deprecated", fixed = TRUE)
+    expect_match(conditionMessage(w), "help('RTCGAToolbox-deprecated')",
+        fixed = TRUE)
+    expect_identical(y, x)
+    expect_identical(dim(y@BarcodeUUID), c(0L, 0L))
+    ## the default gives no warning
+    expect_no_warning(quiet(do.call(getFirehoseData, args)))
+})
+
 test_that("CNACGH cache files are named by platform, not position", {
     ## BUG-08: with 'CNACGH-<n>.txt', adding the MSKCC archive (listed
     ## first) would have matched a cached HMS file to the MSKCC archive

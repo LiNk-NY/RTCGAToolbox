@@ -181,9 +181,9 @@ download data you can force RTCGAToolbox.
 * fileSizeLimit: If you would like to set a limit for downloaded file size you
 can use this parameter. Huge data files require longer download time and
 memory to load. By default his parameter set as 500MB.
-* getUUIDs: Firehose provides TCGA barcodes for every sample. In some cases
-users may want to use UUIDs for samples. If this parameter set, then after
-processing data RTCGAToolbox gets UUIDs for each barcode.
+* getUUIDs: Deprecated. The barcode to UUID service it used was retired, so
+this argument is ignored. Use `TCGAutils::barcodeToUUID()` to translate
+barcodes to UUIDs.
 
 ## Example Dataset
 

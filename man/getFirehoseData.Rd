@@ -106,7 +106,9 @@ Defaults to a cache directory given by \code{RTCGAToolbox:::.setCache()}.}
 \item{fileSizeLimit}{Files that are larger than set value (megabyte) won't be
 downloaded (Default: 500)}
 
-\item{getUUIDs}{Logical key to get UUIDs from barcode (Default: FALSE)}
+\item{getUUIDs}{Deprecated. Logical (default FALSE). The barcode to UUID
+service it used was retired; \code{TRUE} gives a warning and is ignored. See
+\link{RTCGAToolbox-deprecated}.}
 
 \item{...}{Additional arguments to pass down.}
 }
