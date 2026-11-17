@@ -29,12 +29,18 @@ test_that("getFirehoseData validates dataset and runDate", {
         destdir = tempdir()), "valid run date")
 })
 
-test_that("[BUG-07] an invalid gistic2Date is not rejected", {
+test_that("an invalid gistic2Date is rejected before any download", {
+    ## BUG-07: '&&' let any single string through
     cnt <- local_fake_firehose(fh)
     dest <- withr::local_tempdir()
-    expect_no_error(fetch("GISTIC", dest, gistic2Date = "20991231"))
-    expect_true(any(grepl("analyses__2099_12_31/data/ACC-TP/20991231/",
-        cnt$urls_listed, fixed = TRUE)))
+    for (bad in list("20991231", "2016-01-28", c("20160128", "20150821"),
+            NA_character_, 20160128))
+        expect_error(fetch("GISTIC", dest, gistic2Date = bad),
+            'valid "gistic2Date"', info = paste(bad, collapse = ","))
+    expect_length(cnt$urls_listed, 0L)
+    expect_length(cnt$downloads, 0L)
+    ## not checked when GISTIC = FALSE
+    expect_no_error(fetch("clinical", dest, gistic2Date = "20991231"))
 })
 
 ## ---- URLs and file selection -----------------------------------------

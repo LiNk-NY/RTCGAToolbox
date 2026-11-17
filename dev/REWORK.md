@@ -80,7 +80,8 @@ bioc324-index-20261104).
 - [x] BUG-23: `biocExtract` on matrix / data.frame / FirehoseGISTIC.
 - [x] BUG-17: record GRCh37 for CNASNP/CNVSNP from FirehoseData.
 - [x] BUG-10: GISTIC Peaks column filter, row names, no dedup by range.
-- [ ] BUG-07, then the M-level items.
+- [x] BUG-07: gistic2Date validation.
+- [ ] Remaining M-level items (BUG-09, -12, -13, -16, -20, -25).
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [ ] Remove dead internals.

@@ -46,6 +46,8 @@ converted to factor codes.
 removed by `getGISTICPeaks()`; the `SummarizedExperiment` row names are now
 the peak names (e.g., `Amplification Peak  1`) instead of row indices; and
 peaks that share the same limits are no longer dropped.
+* `getFirehoseData(GISTIC = TRUE)` now rejects a `gistic2Date` that is
+not one of `getFirehoseAnalyzeDates()` before downloading anything.
 
 ## Changes in version 2.34.0
 

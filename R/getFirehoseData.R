@@ -342,7 +342,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
   }
 
     if (GISTIC) {
-      if (!S4Vectors::isSingleString(gistic2Date) &&
+      if (!S4Vectors::isSingleString(gistic2Date) ||
           !gistic2Date %in% getFirehoseAnalyzeDates())
           stop('Please set a valid "gistic2Date" parameter.')
     }
