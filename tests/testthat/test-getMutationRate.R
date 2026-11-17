@@ -9,13 +9,7 @@ maf_obj <- function() {
     extra[["Hugo_Symbol"]] <- "TP53"
     extra[["Tumor_Sample_Barcode"]] <- "TCGA-OR-A5J2-01A-11D-A29I-10"
     maf <- rbind(maf, extra)
-    ## getMutationRate() reads samples from column 16 (MAF layout); pad
-    ## the fixture to the full MAF column order
-    full <- as.data.frame(matrix("", nrow(maf), 17L))
-    full[, 1L] <- maf[["Hugo_Symbol"]]
-    full[, 16L] <- maf[["Tumor_Sample_Barcode"]]
-    names(full)[c(1L, 16L)] <- c("Hugo_Symbol", "Tumor_Sample_Barcode")
-    new("FirehoseData", Dataset = "ACC", Mutation = full)
+    new("FirehoseData", Dataset = "ACC", Mutation = maf)
 }
 
 test_that("getMutationRate gives per-gene fraction over mutated samples", {
@@ -34,8 +28,25 @@ test_that("getMutationRate on accmini (one sample)", {
 
 test_that("getMutationRate input handling", {
     expect_error(getMutationRate(data.frame()), "must be 'FirehoseData'")
-    ## [BUG-13] no mutation data returns NULL silently
-    expect_null(getMutationRate(new("FirehoseData", Dataset = "X")))
+    ## BUG-13: no mutation data used to return NULL silently
+    expect_warning(res <- getMutationRate(new("FirehoseData", Dataset = "X")),
+        "No mutation data")
+    expect_identical(res,
+        data.frame(Genes = character(0L), MutationRatio = numeric(0L)))
+    x <- maf_obj()
+    x@Mutation[["Tumor_Sample_Barcode"]] <- NULL
+    expect_error(getMutationRate(x), "Tumor_Sample_Barcode")
+})
+
+test_that("getMutationRate finds columns by name, not position", {
+    ## BUG-13: genes and samples were read from columns 1 and 16
+    x <- maf_obj()
+    x@Mutation <- x@Mutation[, rev(names(x@Mutation))]
+    expect_identical(getMutationRate(x), getMutationRate(maf_obj()))
+    ## a gene mutated twice in one sample counts once
+    y <- maf_obj()
+    y@Mutation <- rbind(y@Mutation, y@Mutation[1L, ])
+    expect_identical(getMutationRate(y), getMutationRate(maf_obj()))
 })
 
 test_that(".rbindMAFs is a row union, never a join", {

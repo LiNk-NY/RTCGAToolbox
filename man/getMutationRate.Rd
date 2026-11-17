@@ -10,10 +10,16 @@ getMutationRate(dataObject)
 \item{dataObject}{This must be \code{FirehoseData} object.}
 }
 \value{
-Returns a data table
+A \code{data.frame} with columns \code{Genes} (from \code{Hugo_Symbol}) and
+\code{MutationRatio}, one row per gene, with genes as row names. Samples are
+identified by the \code{Tumor_Sample_Barcode} column. With no mutation data,
+a zero-row \code{data.frame} is returned with a warning.
 }
 \description{
-Make a table for mutation rate of each gene in the cohort
+For each gene, the proportion of samples with at least one mutation in
+that gene. The denominator is the number of samples that appear in the
+mutation data (i.e., samples with at least one mutation), not all samples
+in the cohort.
 }
 \examples{
 data(accmini)

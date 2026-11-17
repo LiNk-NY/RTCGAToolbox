@@ -62,6 +62,11 @@ different columns by column name (missing columns are `NA`) and keeps file
 order. Previously they were combined with `merge()`, a join on all shared
 columns, which re-sorted rows and could collapse rows or copy values
 between rows when the shared columns were identical.
+* `getMutationRate()` finds genes and samples by the `Hugo_Symbol` and
+`Tumor_Sample_Barcode` column names instead of column positions 1 and 16,
+returns an empty `data.frame` with a warning (instead of `NULL`) when there
+are no mutation data, and documents that the denominator is the number of
+samples with at least one mutation.
 
 ## Changes in version 2.34.0
 
