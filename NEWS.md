@@ -39,6 +39,9 @@ only `Segment_Mean`) no longer fail.
 `FirehoseGISTIC` object, not only a `FirehoseData` object. Non-ranged
 tables with non-numeric columns now raise an error instead of being
 converted to factor codes.
+* `biocExtract(x, "CNASNP")` and `biocExtract(x, "CNVSNP")` on a
+`FirehoseData` object now record the genome build (`GRCh37`) on the ranges.
+`getFirehoseData()` only downloads the hg19 SNP6 segmentation files.
 
 ## Changes in version 2.34.0
 

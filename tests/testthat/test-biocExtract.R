@@ -80,9 +80,20 @@ test_that("CNASNP/CNVSNP (single sample) become RangedSummarizedExperiment", {
         expect_identical(end(rse), as.integer(raw[["End"]]), info = type)
         expect_identical(as.character(seqnames(rse)),
             as.character(raw[["Chromosome"]]), info = type)
-        ## [BUG-17] the data are hg19 but no genome is recorded
-        expect_true(all(is.na(genome(rse))), info = type)
+        ## BUG-17: the SNP6 segment archives are hg19 (seqnames '1', '2', ...)
+        expect_identical(unique(unname(genome(rse))), "GRCh37", info = type)
     }
+})
+
+test_that("the hg19 default applies only to CNASNP/CNVSNP from FirehoseData", {
+    ## the same table outside a FirehoseData object has no known build
+    rse <- quiet(biocExtract(accmini@CNASNP, "CNASNP"))
+    expect_true(all(is.na(genome(rse))))
+    ## an NCBI_Build column takes precedence over the default
+    x <- accmini
+    x@CNASNP[["NCBI_Build"]] <- "36"
+    rse <- quiet(biocExtract(x, "CNASNP"))
+    expect_identical(unique(unname(genome(rse))), "NCBI36")
 })
 
 test_that("multi-sample segments become a RaggedExperiment", {

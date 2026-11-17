@@ -78,7 +78,8 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
     if (!identical(length(type), 1L))
         stop("Please specify a single data type")
     message("working on: ", type)
-    if (is(object, "FirehoseData"))
+    fromShell <- is(object, "FirehoseData")
+    if (fromShell)
         object <- .removeShell(object, type)
     if (!length(object)) { return(object) }
     if (is.list(object) && !is.data.frame(object)) {
@@ -130,7 +131,10 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
 
     hasRanged <- .hasRangeNames(object)
     if (hasRanged) {
-        object <- .convertRangeBioc(object)
+        ## getFirehoseData() only downloads the '*_hg19__seg' SNP6 archives
+        hg19seg <- fromShell && type %in% c("CNASNP", "CNVSNP")
+        object <- .convertRangeBioc(object,
+            defaultBuild = if (hg19seg) "hg19" else NA_character_)
     } else {
         object <- .standardizeBC(object)
         metadat <- if (is(object, "Annotated")) metadata(object) else list()
@@ -147,8 +151,11 @@ biocExtract <- function(object, type = c("clinical", "RNASeqGene",
     return(object)
 }
 
-.convertRangeBioc <- function(object, ...) {
+## 'defaultBuild' is used when the data have no NCBI_Build column
+.convertRangeBioc <- function(object, defaultBuild = NA_character_, ...) {
     build <- unique(.getBuild(object))
+    if (all(is.na(build)))
+        build <- defaultBuild
     build <- TCGAutils::correctBuild(build, "NCBI")
     if (.hasConsistentRanges(object)) {
         object <- .makeRangedSummarizedExperimentFromDataFrame(object,
