@@ -41,7 +41,6 @@ test_that("getLinks returns the archive URL for each data type", {
         CNASNP = "segmented_scna_hg19__seg.Level_3",
         CNVSNP = "segmented_scna_minus_germline_cnv_hg19__seg.Level_3",
         CNASeq = "dnaseqc__hms_harvard_edu__Level_3__segmentation__seg.Level_3",
-        CNACGH = "hg_cgh_415k_g4124a__hms_harvard_edu__Level_3__segmentation__seg.Level_3",
         Methylation = "humanmethylation450__jhu_usc_edu__Level_3__within_bioassay_data_set_function__data.Level_3",
         Mutation = "Mutation_Packager_Calls.Level_3",
         mRNAArray = "agilentg4502a_07_3__unc_edu__Level_3",
@@ -57,6 +56,12 @@ test_that("getLinks returns the archive URL for each data type", {
         expect_true(grepl(pat[[type]], res, fixed = TRUE), info = type)
         expect_true(endsWith(res, ".tar.gz"), info = type)
     }
+    ## BUG-08: CNACGH includes the MSKCC segmentations
+    cgh <- lk(CNACGH = TRUE)
+    expect_identical(cgh, paste0(std_url, FH_PREFIX, "Merge_cna__", c(
+        "cgh_1x1m_g4447a__mskcc_org__Level_3__segmentation_data_computation__seg",
+        "hg_cgh_415k_g4124a__hms_harvard_edu__Level_3__segmentation__seg"),
+        FH_SUFFIX, ".tar.gz"))
     g <- lk(GISTIC = TRUE)
     expect_identical(g, paste0(
         "https://gdac.broadinstitute.org/runs/analyses__2016_01_28/data/ACC/20160128/",

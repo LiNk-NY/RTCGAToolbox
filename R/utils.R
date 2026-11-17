@@ -143,13 +143,16 @@
 .searchPlatform <- function(x) {
     brokenUP <- unlist(strsplit(x, "_"))
     brokenUP <- Filter(function(y) nchar(y) != 0L, brokenUP)
-    platNumExp <- "[0-9]k$|[0-9]a$|450$|27$|ht|hg"
+    platNumExp <- "[0-9]k$|[0-9]a$|450$|27$|ht|hg|^1x1m$"
     namePlat <- unique(grep("cgh|mirna|meth|huex|^trans|illu", brokenUP,
         ignore.case = TRUE, value = TRUE))
     namePlat <- .nameClean(namePlat)
     vers <- grep(platNumExp, brokenUP, ignore.case = TRUE, value = TRUE)
     vers <- .nameClean(vers)
     result <- .mergeNames(namePlat, vers)
+    ## MSKCC and HMS both ran the CGH 244A array; tell them apart
+    if (nzchar(result) && "mskcc" %in% tolower(brokenUP))
+        result <- paste(result, "mskcc", sep = "_")
     return(result)
 }
 

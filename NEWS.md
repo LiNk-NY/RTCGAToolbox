@@ -20,6 +20,15 @@ sharing the same ranges, gave a `RangedSummarizedExperiment` instead. Use
 `RaggedExperiment::compactAssay()` for a matrix when the ranges are shared.
 `getFirehoseData()` and `getData()` still return these data as tables.
 
+* `getFirehoseData(CNACGH = TRUE)` now also downloads the MSKCC CGH
+segmentations (`cgh_1x1m_g4447a` for OV and LUSC; `hg_cgh_244a` from MSKCC
+for GBM and GBMLGG), which were previously skipped. They come back as
+additional `FirehoseCGHArray` elements; `biocExtract()` names them
+`CGH_1x1m_g4447a_mskcc` and `CGH_hg_244a_mskcc`. The HMS platforms keep
+their names. CNACGH files are now cached as
+`<runDate>-<dataset>-CNACGH-<platform>.txt` instead of numbering them by
+position; files cached by earlier versions are downloaded again.
+
 ### Bug fixes and minor improvements
 
 * `biocExtract()` now aligns rows by name when it combines array files

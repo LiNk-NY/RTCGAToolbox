@@ -59,7 +59,7 @@ getLinks <- function(dataset, data_date="20160128",
     else if (CNASeq)
         .getLinks("__Level_3__segmentation__seg.Level_3", "[.]Merge_cna__.*.dnaseq.*.__Level_3__segmentation__seg.Level_3.*.tar[.]gz$", dataset, doc)
     else if (CNACGH)
-        .getLinks("__Level_3__segmentation__seg.Level_3", "[.]Merge_cna__.*.cgh.*.__Level_3__segmentation__seg.Level_3.*.tar[.]gz$", dataset, doc)
+        .getLinks(.CGH_LEVEL3, .CGH_ARCHIVE, dataset, doc)
     else if (Methylation)
         .getLinks("__Level_3__within_bioassay_data_set_function__data.Level_3", "[.]Merge_methylation__.*.methylation.*.__Level_3__within_bioassay_data_set_function__data.Level_3.*.tar[.]gz$", dataset, doc)
     else if (Mutation)

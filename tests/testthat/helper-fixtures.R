@@ -96,6 +96,15 @@ fx_seg <- c(
     .tsv("TCGA-OR-A5J2-01A-11D-A29I-01", "23", "1000", "2000", "8", "-1.25")
 )
 
+## MSKCC CGH 1x1M segmentation (BUG-08): same layout, different values,
+## so a mix-up with the HMS archive is detectable
+fx_seg_mskcc <- c(
+    .tsv("Sample", "Chromosome", "Start", "End", "Num_Probes", "Segment_Mean"),
+    .tsv("TCGA-OR-A5J1-01A-11D-A29I-04", "1", "554287", "16838573", "5788", "-0.005"),
+    .tsv("TCGA-OR-A5J1-01A-11D-A29I-04", "1", "16888048", "17148592", "20", "-0.5418"),
+    .tsv("TCGA-OR-A5J2-01A-11D-A29I-04", "3", "100", "900", "4", "1.1")
+)
+
 ## methylation: four columns per sample
 fx_methyl <- c(
     .tsv("Hybridization REF",
@@ -246,6 +255,9 @@ build_fake_firehose <- function(root = tempfile("firehose")) {
             list("ACC.snp__genome_wide_snp_6__broad_mit_edu__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.seg.txt" = fx_seg)),
         make_fh_tarball(std, paste0(P, "Merge_cna__illuminahiseq_dnaseqc__hms_harvard_edu__Level_3__segmentation__seg", S),
             list("ACC.cna__illuminahiseq_dnaseqc__hms_harvard_edu__Level_3__segmentation__seg.seg.txt" = fx_seg)),
+        ## listed before the HMS archive, as on the real (sorted) listings
+        make_fh_tarball(std, paste0(P, "Merge_cna__cgh_1x1m_g4447a__mskcc_org__Level_3__segmentation_data_computation__seg", S),
+            list("ACC.cna__cgh_1x1m_g4447a__mskcc_org__Level_3__segmentation_data_computation__seg.seg.txt" = fx_seg_mskcc)),
         make_fh_tarball(std, paste0(P, "Merge_cna__hg_cgh_415k_g4124a__hms_harvard_edu__Level_3__segmentation__seg", S),
             list("ACC.cna__hg_cgh_415k_g4124a__hms_harvard_edu__Level_3__segmentation__seg.seg.txt" = fx_seg)),
         make_fh_tarball(std, paste0(P, "Merge_methylation__humanmethylation450__jhu_usc_edu__Level_3__within_bioassay_data_set_function__data", S),

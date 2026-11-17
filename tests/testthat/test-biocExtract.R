@@ -127,6 +127,30 @@ test_that("multi-sample segments become a RaggedExperiment", {
     expect_identical(unname(sm[, "TCGA-A1-0002-01A"]), c(NA, NA, 0.1))
 })
 
+test_that("CNACGH platforms come back separately, never merged", {
+    seg <- function(s, m) data.frame(Sample = s, Chromosome = 1,
+        Start = c(1, 100), End = c(50, 200), Num_Probes = 1:2,
+        Segment_Mean = m)
+    pre <- "gdac.broadinstitute.org_GBM.Merge_cna__hg_cgh_244a__"
+    obj <- new("FirehoseData", Dataset = "GBM", CNACGH = list(
+        new("FirehoseCGHArray", DataMatrix = seg("TCGA-02-0001-01C", c(1, 2)),
+            Filename = paste0(pre, "hms_harvard_edu__Level_3__segmentation__seg.Level_3.tar.gz")),
+        new("FirehoseCGHArray", DataMatrix = seg("TCGA-02-0001-01C", c(3, 4)),
+            Filename = paste0(pre, "mskcc_org__Level_3__segmentation_data_computation__seg.Level_3.tar.gz"))))
+    res <- quiet(biocExtract(obj, "CNACGH"))
+    expect_identical(names(res), c("CGH_hg_244a", "CGH_hg_244a_mskcc"))
+    for (r in res) expect_s4_class(r, "RaggedExperiment")
+    expect_identical(unname(assay(res[["CGH_hg_244a"]], "Segment_Mean")[, 1L]),
+        c(1, 2))
+    expect_identical(
+        unname(assay(res[["CGH_hg_244a_mskcc"]], "Segment_Mean")[, 1L]),
+        c(3, 4))
+    ## even under the same platform name, segment tables (same row count,
+    ## same column names) are not combined
+    expect_false(ns$.canMergePlatforms(list(S4Vectors::DataFrame(seg("a", 1:2)),
+        S4Vectors::DataFrame(seg("b", 3:4)))))
+})
+
 test_that("single-sample Mutation becomes a RaggedExperiment", {
     ## BUG-11: used to be an RSE with every MAF column as an assay
     raw <- accmini@Mutation

@@ -87,6 +87,20 @@
     )
 }
 
+## CNACGH archives: HMS ('segmentation__seg') and MSKCC
+## ('segmentation_data_computation__seg') segmentations
+.CGH_LEVEL3 <- "__Level_3__segmentation(_data_computation)?__seg[.]Level_3"
+.CGH_ARCHIVE <- paste0("[.]Merge_cna__.*cgh.*__Level_3__",
+    "segmentation(_data_computation)?__seg[.]Level_3.*[.]tar[.]gz$")
+
+## 'hg_cgh_415k_g4124a__hms_harvard_edu' from a CNACGH archive name
+.cghPlatformKey <- function(archive) {
+    key <- sub(".*[.]Merge_cna__(.*)__Level_3__.*", "\\1", basename(archive))
+    if (identical(key, basename(archive)))
+        stop("Not a CNACGH archive name: ", archive)
+    key
+}
+
 #' @importFrom utils setTxtProgressBar
 .getLinks <- function(keyWord1,keyWord2,datasetLink=NULL,doc) {
   plinks <- grep(keyWord1, doc, value = TRUE)
@@ -301,7 +315,9 @@
 #' @param CNASeq Logical (default FALSE) somatic copy number alterations data
 #'   from sequencing.
 #' @param CNACGH Logical (default FALSE) somatic copy number alterations data
-#'   from CGH.
+#'   from CGH. Segmentations from both Harvard (HMS) and Memorial Sloan
+#'   Kettering (MSKCC) arrays are downloaded, one `FirehoseCGHArray` per
+#'   platform.
 #' @param Methylation Logical (default FALSE) methylation data.
 #' @param Mutation Logical (default FALSE) mutation data from sequencing.
 #' @param mRNAArray Logical (default FALSE) mRNA expression data from
@@ -610,7 +626,9 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (CNACGH)
     {
       #Search for links
-      plinks <- .getLinks("__Level_3__segmentation__seg.Level_3","[.]Merge_cna__.*.cgh.*.__Level_3__segmentation__seg.Level_3.*.tar[.]gz$",dataset,doc)
+      ## HMS archives end in 'segmentation__seg', MSKCC archives (e.g.
+      ## cgh_1x1m_g4447a) in 'segmentation_data_computation__seg'
+      plinks <- .getLinks(.CGH_LEVEL3, .CGH_ARCHIVE, dataset, doc)
 
       dataLists <- list()
       listCount = 1
@@ -618,11 +636,14 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
       {
         if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
         {
+          ## the cache file is named by platform, not by position, so a
+          ## cached file is never matched to another platform's archive
           export.file <- .exportFiles(paste0(fh_url,i),dataset,
                       "-CNACGH.tar.gz",
-                      "[.]cna__.*.__Level_3__segmentation__seg.seg.txt$",
+                      "[.]cna__.*__Level_3__segmentation(_data_computation)?__seg[.]seg[.]txt$",
                       TRUE,
-                      paste0("-CNACGH-",listCount,".txt"),FALSE,destdir,forceDownload,runDate)
+                      paste0("-CNACGH-", .cghPlatformKey(i), ".txt"),
+                      FALSE,destdir,forceDownload,runDate)
           #Get selected type only
           tmpMat = fread(export.file,
                          header=TRUE,colClasses=c("character","numeric","numeric","numeric","numeric","numeric"),

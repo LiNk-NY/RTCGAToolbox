@@ -152,6 +152,19 @@ test_that(".searchPlatform derives short platform names from Firehose files", {
         ns$.searchPlatform(fn("Merge_transcriptome__agilentg4502a_07_1__unc_edu__Level_3__x__data")),
         ns$.searchPlatform(fn("Merge_transcriptome__agilentg4502a_07_2__unc_edu__Level_3__x__data"))
     )
+    ## BUG-08: MSKCC CGH platforms get their own names; HMS names unchanged
+    cgh <- function(x) ns$.searchPlatform(fn(paste0("Merge_cna__", x)))
+    expect_identical(cgh(
+        "cgh_1x1m_g4447a__mskcc_org__Level_3__segmentation_data_computation__seg"),
+        "CGH_1x1m_g4447a_mskcc")
+    expect_identical(cgh(
+        "hg_cgh_244a__mskcc_org__Level_3__segmentation_data_computation__seg"),
+        "CGH_hg_244a_mskcc")
+    expect_identical(cgh("hg_cgh_244a__hms_harvard_edu__Level_3__segmentation__seg"),
+        "CGH_hg_244a")
+    expect_identical(cgh(
+        "hg_cgh_415k_g4124a__hms_harvard_edu__Level_3__segmentation__seg"),
+        "CGH_hg_415k_g4124a")
 })
 
 test_that(".mergeNames combines platform and version tokens", {

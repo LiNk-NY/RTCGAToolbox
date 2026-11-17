@@ -60,7 +60,7 @@ test_that("each data type downloads exactly its archive (no decoys)", {
     dest <- withr::local_tempdir()
     fetch(all_types, dest)
     got <- basename(cnt$downloads)
-    expect_length(got, 14L)
+    expect_length(got, 15L)
     expect_false(any(grepl("\\.aux\\.|mage-tab|\\.md5$|hg18|isoform|exon_quant|Preprocess|Oncotated|Coverage|LowPass", got)))
     ## everything on the mirror except the mRNAseq_Preprocess archive,
     ## which is only used for non-default RNAseq2Norm values
@@ -77,7 +77,8 @@ test_that("each data type downloads exactly its archive (no decoys)", {
         "20160128-ACC-CNASNPHg19.txt",
         "20160128-ACC-CNVSNPHg19.txt",
         "20160128-ACC-CNAseq.txt",
-        "20160128-ACC-CNACGH-1.txt",
+        "20160128-ACC-CNACGH-cgh_1x1m_g4447a__mskcc_org.txt",
+        "20160128-ACC-CNACGH-hg_cgh_415k_g4124a__hms_harvard_edu.txt",
         "20160128-ACC-Methylation-1.txt",
         "20160128-ACC-mRNAArray-1.txt",
         "20160128-ACC-miRNAArray-1.txt",
@@ -156,10 +157,19 @@ local({
         expect_identical(x@CNASNP, expected)
         expect_identical(x@CNVSNP, expected)
         expect_identical(x@CNASeq, expected)
-        expect_length(x@CNACGH, 1L)
-        expect_s4_class(x@CNACGH[[1L]], "FirehoseCGHArray")
-        expect_identical(x@CNACGH[[1L]]@DataMatrix, expected)
-        expect_match(x@CNACGH[[1L]]@Filename, "hg_cgh_415k_g4124a")
+        ## BUG-08: MSKCC (cgh_1x1m) and HMS archives, in listing order
+        expect_length(x@CNACGH, 2L)
+        for (a in x@CNACGH) expect_s4_class(a, "FirehoseCGHArray")
+        expect_match(x@CNACGH[[1L]]@Filename,
+            "cgh_1x1m_g4447a__mskcc_org__Level_3__segmentation_data_computation__seg[.]Level_3")
+        expect_identical(x@CNACGH[[1L]]@DataMatrix, data.frame(
+            Sample = rep(c("TCGA-OR-A5J1-01A-11D-A29I-04",
+                "TCGA-OR-A5J2-01A-11D-A29I-04"), c(2L, 1L)),
+            Chromosome = c(1, 1, 3), Start = c(554287, 16888048, 100),
+            End = c(16838573, 17148592, 900), Num_Probes = c(5788, 20, 4),
+            Segment_Mean = c(-0.005, -0.5418, 1.1)))
+        expect_match(x@CNACGH[[2L]]@Filename, "hg_cgh_415k_g4124a")
+        expect_identical(x@CNACGH[[2L]]@DataMatrix, expected)
     })
 
     test_that("Methylation: beta values with probe annotation", {
@@ -247,6 +257,24 @@ local({
 })
 
 ## ---- other options ----------------------------------------------------
+
+test_that("CNACGH cache files are named by platform, not position", {
+    ## BUG-08: with 'CNACGH-<n>.txt', adding the MSKCC archive (listed
+    ## first) would have matched a cached HMS file to the MSKCC archive
+    cnt <- local_fake_firehose(fh)
+    dest <- withr::local_tempdir()
+    writeLines(fx_seg, file.path(dest, "20160128-ACC-CNACGH-1.txt"))
+    x <- fetch("CNACGH", dest)
+    expect_length(cnt$downloads, 2L)
+    expect_identical(x@CNACGH[[1L]]@DataMatrix[["Num_Probes"]], c(5788, 20, 4))
+    ## a cached platform file is used for that platform only
+    y <- fetch("CNACGH", dest)
+    expect_length(cnt$downloads, 2L)
+    expect_identical(y@CNACGH, x@CNACGH)
+    expect_identical(ns$.cghPlatformKey(x@CNACGH[[2L]]@Filename),
+        "hg_cgh_415k_g4124a__hms_harvard_edu")
+    expect_error(ns$.cghPlatformKey("foo.tar.gz"), "Not a CNACGH archive")
+})
 
 test_that("miRNASeqGeneType selects the column and the cache file name", {
     cnt <- local_fake_firehose(fh)
