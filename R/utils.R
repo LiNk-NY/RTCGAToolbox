@@ -38,37 +38,6 @@
     return(x)
 }
 
-.getGISTIC <- function(x, type) {
-    x <- getElement(x, type)
-    if (!length(x))
-        return(list())
-    annoteCols <- !grepl("TCGA", names(x), ignore.case = TRUE)
-    annoteRowDF <- x[, annoteCols, drop = FALSE]
-    rows <- annoteRowDF[,
-        grepl("gene|ranges", names(annoteRowDF), ignore.case = TRUE)]
-    if (length(rows)) {
-        if (as.logical(anyDuplicated(rows))) {
-            uniq <- !duplicated(rows)
-            rows <- rows[uniq]
-            annoteRowDF <- annoteRowDF[uniq, ]
-            x <- x[uniq, ]
-        }
-        rownames(annoteRowDF) <- rows
-    }
-    x <- x[, !annoteCols]
-    x <- vapply(x, type.convert, numeric(nrow(x)))
-    x <- .standardizeBC(x)
-    if (identical(type, "Peaks") && length(rows)) {
-        gist <- SummarizedExperiment(SimpleList(x),
-            rowRanges = as(rows, "GRanges"))
-        rownames(gist) <- rows
-        mcols(gist) <- annoteRowDF
-    } else {
-        gist <- SummarizedExperiment(SimpleList(x), rowData = annoteRowDF)
-    }
-    return(gist)
-}
-
 .getMethyl <- function(x) {
     headers <- names(x)
     annote <- x[, !grepl("TCGA", headers)]
@@ -193,19 +162,6 @@
     return(x)
 }
 
-.fileSelect <- function() {
-    g <- readline(
-        paste0("The selected data type has more than one",
-               "file available.\nPlease select the desired file.",
-               "\n(Enter 0 for the first file with the most number of samples)\n_"))
-    g <- suppressWarnings(as.integer(g))
-    if(is.na(g)){
-        stop("Your selection must be an integer!")
-    } else {
-        return(g)
-    }
-}
-
 .findCol <- function(x, colname) {
     if (!is.character(colname))
         stop("<internal> colname is not character")
@@ -223,12 +179,6 @@
     ## check "Hugo_Symbol" also possible
     buildInfo <- .findCol(x, info)
     as.logical(length(buildInfo))
-}
-
-.TCGAcols <- function(df) {
-    apply(df, 2L, function(col) {
-        all(startsWith(col, "TCGA"))
-    })
 }
 
 .findUniqueAnnoCol <-
@@ -261,13 +211,6 @@
         rownames(df) <- annos
     }
     df
-}
-
-.validateNCBI <- function(bvec) {
-    bnum <- unique(bvec)
-    if (length(bnum) > 1L)
-        stop("Inconsistent build numbers found")
-    bnum
 }
 
 .standardstrand <- function(strandv) {
@@ -592,19 +535,6 @@
         "iscircular", "start", "end", "strand", "width", "element", "chr")
     rmIdx <- which(tolower(names(object)) %in% omitAdditional)
     setdiff(rmIdx, rangeIdx)
-}
-
-.runOnDupElements <- function(vect, FUN, ...) {
-    vnames <- names(vect)
-    uvect <- unique(vnames)
-    dups <- stats::setNames(nm = vnames[duplicated(vnames)])
-    nonDups <- !vnames %in% dups
-    cdups <- vector("list", length(dups))
-    for (d in dups) {
-        cdups[[d]] <- FUN(vect[vnames %in% d], ...)
-    }
-    res <- c(cdups[dups], vect[nonDups])
-    res[order(match(names(res), uvect))]
 }
 
 ## Combine DataFrames that share a platform name (e.g. Agilent 07_1, 07_2,

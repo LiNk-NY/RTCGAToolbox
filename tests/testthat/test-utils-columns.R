@@ -51,11 +51,6 @@ test_that(".standardstrand maps Firehose strand codes to +, -, *", {
     expect_identical(ns$.standardizeStrand(df, "Strand")[["Strand"]], c("+", "-"))
 })
 
-test_that(".validateNCBI rejects mixed builds", {
-    expect_identical(ns$.validateNCBI(c("37", "37")), "37")
-    expect_error(ns$.validateNCBI(c("36", "37")), "Inconsistent build")
-})
-
 test_that(".getBuild reads NCBI_Build columns", {
     expect_identical(ns$.getBuild(data.frame(NCBI_Build = c("37", "37"))), "37")
     expect_identical(
@@ -140,16 +135,6 @@ test_that(".missingRanges / .rmNAse / .removeNASeq drop incomplete rows", {
     expect_message(res <- ns$.removeNASeq(df, "Chromosome"),
         "Removing 1 rows")
     expect_identical(res[["Start"]], c(1, NA))
-})
-
-test_that(".runOnDupElements applies FUN to duplicated names, keeps order", {
-    v <- list(a = 1, b = 2, a = 3, c = 4, b = 5)
-    res <- ns$.runOnDupElements(v, function(x) sum(unlist(x)))
-    expect_identical(names(res), c("a", "b", "c"))
-    expect_identical(res, list(a = 4, b = 7, c = 4))
-    ## no duplicates: identity
-    v <- list(x = 1, y = 2)
-    expect_identical(ns$.runOnDupElements(v, function(x) stop("no")), v)
 })
 
 test_that(".removeShell maps GISTIC* types to the GISTIC slot", {

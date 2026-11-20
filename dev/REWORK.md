@@ -56,10 +56,11 @@ crash on valid input, **M** = misleading/cosmetic.
 | BUG-16 | M | `show,FirehoseData` | `dim(Mutation)[2] & dim(Mutation)[2]` typo (should check rows). |
 | BUG-08 | ? | `getFirehoseData(CNACGH)` | Link pattern matches `hg_cgh_244a`/`hg_cgh_415k` (HMS) archives but not MSKCC `cgh_1x1m ... segmentation_data_computation__seg`. Fixed (decision: include): MSKCC `cgh_1x1m_g4447a` (OV, LUSC) and MSKCC `hg_cgh_244a` (GBM, GBMLGG) added; cache files named by platform since positional `CNACGH-<n>.txt` names would map a cached HMS file onto the MSKCC archive once the link list changed. |
 
-Dead code (no callers in this package): `.getGISTIC`, `.fileSelect`,
+Dead code removed in Phase 4: `.getGISTIC`, `.fileSelect`, `.TCGAcols`,
 `.runOnDupElements` (unused since BUG-03/04), `.validateNCBI` (unused
-since BUG-25). None is used elsewhere in Bioconductor
-(bioc324-index-20261104).
+since BUG-25). None was used elsewhere in Bioconductor
+(bioc324-index-20261104). `.barcodeUUID` stays until `getUUIDs` is
+defunct.
 
 ## Internals used by other Bioconductor packages
 
@@ -103,7 +104,7 @@ alignment).
 - [x] BUG-09 (junk column, patient barcodes), BUG-12, BUG-13, BUG-16, BUG-20, BUG-25, BUG-28.
 
 ### Phase 4 — removals (Bioc index check first) and API decisions
-- [ ] Remove dead internals.
+- [x] Remove dead internals.
 - [x] Deprecate `getUUIDs` (BUG-15).
 - [ ] Remove `.barcodeUUID` and the RJSONIO import (after the deprecation cycle).
 - [x] BUG-30: platform-named cache files for the other list slots.
