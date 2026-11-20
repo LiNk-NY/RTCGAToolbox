@@ -127,6 +127,7 @@ alignment).
       (every type, options, platforms, cache/force, size limits, GISTIC,
       runDate = NULL), and identical objects and cache files on real ACC
       (all types + GISTIC), OV (CGH, arrays) and COAD (GA, HiSeq).
-- [ ] Test fixture: add `mRNAseq_scaled_estimate.txt` to the fake
+- [x] Test fixture: add `mRNAseq_scaled_estimate.txt` to the fake
       mRNAseq_Preprocess archive (`RNAseq2Norm = "scaled_estimate"` works on
-      real ACC but cannot be tested offline).
+      real ACC but could not be tested offline). Added, with values in the
+      real file's format (scientific notation, down to 1.6e-207).

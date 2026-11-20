@@ -75,6 +75,16 @@ fx_pre_raw <- c(
     .tsv("TP53|7157", "300", "400")
 )
 fx_pre_decoy <- c(.tsv("gene", PBC), .tsv("A1BG|1", "-999", "-999"))
+## scaled_estimate (RSEM tau): values in scientific notation, some far
+## below 1e-200 (the values are taken from the real ACC file; TP53 is the
+## real TP53 row, the others are moved between genes)
+fx_pre_scaled <- c(
+    .tsv("HYBRIDIZATION R", PBC),
+    .tsv("?|100133144", "1.8300789905701e-07", "1.93818465093665e-07"),
+    .tsv("A1BG|1", "0", "3.17646521118639e-07"),
+    .tsv("A2M|2", "1.62752743845877e-207", "9.57821430064007e-08"),
+    .tsv("TP53|7157", "2.5737745280747e-05", "6.42731277282419e-06")
+)
 
 ## miRNASeqGene: three columns per sample
 fx_mirna <- c(
@@ -272,6 +282,7 @@ build_fake_firehose <- function(root = tempfile("firehose")) {
             list(
                 "ACC.uncv2.mRNAseq_RSEM_normalized_log2.txt" = fx_pre_log2,
                 "ACC.uncv2.mRNAseq_raw_counts.txt" = fx_pre_raw,
+                "ACC.uncv2.mRNAseq_scaled_estimate.txt" = fx_pre_scaled,
                 "ACC.uncv2.mRNAseq_RSEM_normalized_log2_PARADIGM.txt" = fx_pre_decoy,
                 "ACC.uncv2.mRNAseq_RSEM_Z_Score.txt" = fx_pre_decoy,
                 "ACC.uncv2.mRNAseq_geneid_transcriptid_mapping.txt" =

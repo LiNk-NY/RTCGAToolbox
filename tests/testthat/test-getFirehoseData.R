@@ -466,6 +466,27 @@ test_that("RNAseq2Norm = RSEM_normalized_log2 reads mRNAseq_Preprocess", {
     expect_error(fetch("RNASeq2GeneNorm", dest, RNAseq2Norm = "bogus"))
 })
 
+test_that("RNAseq2Norm = scaled_estimate keeps very small values", {
+    cnt <- local_fake_firehose(fh)
+    dest <- withr::local_tempdir()
+    x <- fetch("RNASeq2GeneNorm", dest, RNAseq2Norm = "scaled_estimate")
+    expect_identical(basename(cnt$downloads),
+        "gdac.broadinstitute.org_ACC.mRNAseq_Preprocess.Level_3.2016012800.0.0.tar.gz")
+    expect_true(file.exists(file.path(dest,
+        "20160128-ACC-RNAseq2GeneNorm-scaled_estimate-mRNAseq_Preprocess.txt")))
+    m <- x@RNASeq2GeneNorm[[1L]]@DataMatrix
+    expect_identical(colnames(m), PBC)
+    expect_identical(m["TP53", ],
+        setNames(c(2.5737745280747e-05, 6.42731277282419e-06), PBC))
+    ## first data row is kept (one header row); zero stays zero
+    expect_identical(m["A1BG", ], setNames(c(0, 3.17646521118639e-07), PBC))
+    expect_identical(m["A2M", ],
+        setNames(c(1.62752743845877e-207, 9.57821430064007e-08), PBC))
+    expect_gt(m["A2M", 1L], 0)
+    ## '?|' rows are dropped
+    expect_identical(rownames(m), c("A1BG", "A2M", "TP53"))
+})
+
 test_that("files above fileSizeLimit are skipped", {
     cnt <- local_fake_firehose(fh)
     local_mocked_bindings(.checkFileSize = function(dataURL, fileSizeLimit)
