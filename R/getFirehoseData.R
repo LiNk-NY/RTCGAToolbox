@@ -521,8 +521,6 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
           !gistic2Date %in% getFirehoseAnalyzeDates())
           stop('Please set a valid "gistic2Date" parameter.')
     }
-    trim <- function (x) gsub("^\\s+|\\s+$", "", x)
-
     resultClass <- new("FirehoseData", Dataset = dataset)
     if (!is.null(runDate)) {
       resultClass@runDate <- runDate
@@ -535,503 +533,337 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
       resultClass@gistic2Date <- NA_character_
     }
 
-  if (!is.null(runDate))
-  {
-    ##build URL for getting file links
-    fh_url <- "https://gdac.broadinstitute.org/runs/stddata__"
-    fh_url <- paste0(fh_url,substr(runDate,1,4),"_",substr(runDate,5,6),"_",substr(runDate,7,8),"/data/")
-    fh_url <- paste0(fh_url,dataset,"/",runDate,"/")
-    doc <- .files_from_html_table(fh_url)
-
-    #Download clinical data
+  if (!is.null(runDate)) {
+    ctx <- .fhContext(.fhURL("stddata", runDate, dataset), dataset, runDate,
+        destdir, forceDownload, fileSizeLimit)
+    doc <- .files_from_html_table(ctx[["url"]])
+    ## each reader returns NULL when no archive was read, leaving the slot
+    ## as it is; list slots always get a (possibly empty) list
+    links <- function(type) .archiveLinks(type, dataset, doc)
     if (clinical)
-    {
-      #Search for links
-      plinks <- .archiveLinks("clinical", dataset, doc)
-
-      for(i in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,"-Clinical.tar.gz","*.clin.merged.picked.txt$",FALSE,
-                       "-Clinical.txt",FALSE,destdir,forceDownload,runDate)
-          raw.clin <- read.delim(export.file, colClasses = "character",
-              check.names = FALSE)
-          ## the 'Composite Element REF' row only holds the word 'value'
-          raw.clin <- raw.clin[raw.clin[[1L]] != "Composite Element REF", ,
-              drop = FALSE]
-          resultClass@clinical <- .clinicalFrame(raw.clin)
-          gc()
-        }
-      }
-    }
-
-    #Download RNAseq gene level data
+      resultClass <- .setSlot(resultClass, "clinical",
+          .readClinical(links("clinical"), ctx))
     if (RNASeqGene)
-    {
-      #Search for links
-      plinks <- trim(.archiveLinks("RNASeqGene", dataset, doc))
-      ## one platform only (BUG-31); cached by archive, so neither
-      ## forceDownload nor an earlier call changes which data are returned
-      for(i in .selectRNAseqPlatform(plinks, RNAseqPlatform, dataset,
-          "RNASeqGene"))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,"-RNAseqGene.tar.gz",
-                       "[.]rnaseq__.*.__Level_3__gene_expression__data.data.txt$",
-                       TRUE,.cacheName("RNAseqGene", i, plinks),FALSE,destdir,
-                       forceDownload,runDate)
-          #Get selected type only
-          resultClass@RNASeqGene <- .makeExprMat(export.file,RNAseqNorm,"RNAseq",mergeSize=1000,arrayData=FALSE)
-          gc()
-        }
-      }
-    }
-
-    #Download RNAseq2 gene level data (scaled estimates = TPM / 1e6 or raw_count, not rounded)
+      resultClass <- .setSlot(resultClass, "RNASeqGene",
+          .readRNAseq("RNASeqGene", links("RNASeqGene"), ctx, RNAseqNorm,
+              RNAseqPlatform))
     if (RNASeq2Gene)
-    {
-      #Search for links
-      plinks <- trim(.archiveLinks("RNASeq2Gene", dataset, doc))
-      for(i in .selectRNAseqPlatform(plinks, RNAseqPlatform, dataset,
-          "RNASeq2Gene"))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,"-RNAseq2Gene.tar.gz",
-                                      "[.]rnaseqv2__.*.__Level_3__RSEM_genes__data.data.txt$",
-                                      TRUE,.cacheName("RNAseq2Gene", i, plinks),
-                                      FALSE,destdir,forceDownload,runDate)
-          #Get selected type only
-          resultClass@RNASeq2Gene <- .makeExprMat(export.file, RNAseqNorm, "RNAseq2",mergeSize=1000,arrayData=FALSE)
-          gc()
-        }
-      }
-    }
-
-    #Download RNAseq2 gene level data
-    if (RNASeq2GeneNorm)
-    {
-      #Search for links
-
+      resultClass <- .setSlot(resultClass, "RNASeq2Gene",
+          .readRNAseq("RNASeq2Gene", links("RNASeq2Gene"), ctx, RNAseqNorm,
+              RNAseqPlatform))
+    if (RNASeq2GeneNorm) {
       RNAseq2Norm <- match.arg(RNAseq2Norm)
-      if (identical(RNAseq2Norm, "normalized_counts")) {
-        searchName <- "[.]rnaseqv2__.*.__Level_3__RSEM_genes_normalized__data.data.txt$"
-        plinks <- .archiveLinks("RNASeq2GeneNorm", dataset, doc)
-      } else {
-        searchName <- paste0(".*\\.mRNAseq_", RNAseq2Norm, "\\.txt$")
-        plinks <- .archiveLinks("mRNAseq_Preprocess", dataset, doc)
-      }
-      plinks <- stats::setNames(
-        vapply(plinks, function(x)
-            .checkFileSize(paste0(fh_url, x), fileSizeLimit), logical(1L)
-        ),
-        plinks)
-      plinks <- plinks[plinks]
-      res <- lapply(seq_along(plinks), function(k) {
-        i <- names(plinks)[k]
-        export.file <- .exportFiles(
-            fileLink = paste0(fh_url,i),
-            dataset = dataset,
-            fileExt = "-RNAseq2GeneNorm.tar.gz",
-            searchName = searchName,
-            subSearch = TRUE,
-            exportName = .cacheName(paste0("RNAseq2GeneNorm-", RNAseq2Norm),
-              i, names(plinks)),
-            manifest = FALSE,
-            destdir = destdir,
-            forceDownload = forceDownload,
-            runDate = runDate
-        )
-            new("FirehosemRNAArray",Filename=i,
-                DataMatrix=.makeExprMat(export.file,
-                    RNAseq2Norm,"RNAseq2",mergeSize=1000,arrayData=TRUE,
-                    headerRows =
-                        if (identical(RNAseq2Norm, "normalized_counts")) 2L
-                        else 1L))
-      })
-      # res <- res[[which.max(vapply(res, ncol, integer(1L)))]]
-      resultClass@RNASeq2GeneNorm <- res
+      resultClass@RNASeq2GeneNorm <- .readRNAseq2Norm(
+          links(if (identical(RNAseq2Norm, "normalized_counts"))
+              "RNASeq2GeneNorm" else "mRNAseq_Preprocess"),
+          ctx, RNAseq2Norm)
     }
-
-    #Download miRNAseq gene level data
-    if (miRNASeqGene)
-    {
-      #Search for links
-      plinks <- .archiveLinks("miRNASeqGene", dataset, doc)
+    if (miRNASeqGene) {
       miRNAtype <- match.arg(miRNASeqGeneType)
-
-      for(i in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(
-              fileLink = paste0(fh_url,i),
-              dataset = dataset,
-              fileExt = "-miRNAseqGene.tar.gz",
-              searchName = "[.]mirnaseq__.*.__Level_3__miR_gene_expression__data.data.txt$",
-              subSearch = TRUE,
-              exportName = paste0("-", miRNAtype, "-miRNAseqGene.txt"),
-              manifest = FALSE,
-              destdir = destdir,
-              forceDownload = forceDownload,
-              runDate = runDate
-          )
-          resultClass@miRNASeqGene <- .makeExprMat(export.file,miRNAtype,"miRNAseq",mergeSize=100,arrayData=FALSE)
-          gc()
-        }
-      }
+      resultClass <- .setSlot(resultClass, "miRNASeqGene",
+          .readmiRNAseq(links("miRNASeqGene"), ctx, miRNAtype))
     }
-
-    #Download CNA SNP data
-    if (CNASNP)
-    {
-      #Search for links
-      plinks <- .archiveLinks("CNASNP", dataset, doc)
-
-      for(i in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,
-                      "-CNASNPHg19.tar.gz",
-                      "[.]snp__.*.__Level_3__segmented_scna_hg19__seg.seg.txt$",
-                      TRUE,
-                      "-CNASNPHg19.txt",FALSE,destdir,forceDownload,runDate)
-          #Get selected type only
-          tmpMat = fread(export.file,header=TRUE,colClasses=c("character","numeric","numeric",
-                                                                                                "numeric","numeric","numeric"),data.table = FALSE)
-          resultClass@CNASNP <- tmpMat
-        }
-      }
-    }
-
-    #Download CNV SNP data
-    if (CNVSNP)
-    {
-      #Search for links
-      plinks <- .archiveLinks("CNVSNP", dataset, doc)
-
-      for(i in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,
-                      "-CNVSNPHg19.tar.gz",
-                      "[.]snp__.*.__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.seg.txt$",
-                      TRUE,
-                      "-CNVSNPHg19.txt",FALSE,destdir,forceDownload,runDate)
-          #Get selected type only
-          tmpMat = fread(export.file,header=TRUE,colClasses=c("character","numeric","numeric",
-                                                                                                "numeric","numeric","numeric"),data.table = FALSE)
-          resultClass@CNVSNP <- tmpMat
-        }
-      }
-    }
-
-    #Download CNA DNAseq data
-    if (CNASeq)
-    {
-      #Search for links
-      plinks <- .archiveLinks("CNASeq", dataset, doc)
-
-      for(i in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,
-                      "-CNAseq.tar.gz",
-                      "[.]cna__.*.__Level_3__segmentation__seg.seg.txt$",
-                      TRUE,
-                      "-CNAseq.txt",FALSE,destdir,forceDownload,runDate)
-          #Get selected type only
-          tmpMat = fread(export.file,
-                         header=TRUE,colClasses=c("character","numeric","numeric","numeric","numeric","numeric"),
-                         data.table = FALSE)
-          #tmpMat = read.delim(paste0(runDate,"-",dataset,"-CNAseq.txt"),header=TRUE,colClasses=c("character","numeric","numeric",
-          #                                                                                 "numeric","numeric"))
-          resultClass@CNASeq <- tmpMat
-        }
-      }
-    }
-
-    #Download CNA CGH data
+    for (type in c("CNASNP", "CNVSNP", "CNASeq"))
+      if (get(type))
+        resultClass <- .setSlot(resultClass, type,
+            .readSegments(type, links(type), ctx))
     if (CNACGH)
-    {
-      #Search for links
-      ## HMS archives end in 'segmentation__seg', MSKCC archives (e.g.
-      ## cgh_1x1m_g4447a) in 'segmentation_data_computation__seg'
-      plinks <- .archiveLinks("CNACGH", dataset, doc)
-
-      dataLists <- list()
-      listCount = 1
-      for(i in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
-        {
-          ## the cache file is named by platform, not by position, so a
-          ## cached file is never matched to another platform's archive
-          export.file <- .exportFiles(paste0(fh_url,i),dataset,
-                      "-CNACGH.tar.gz",
-                      "[.]cna__.*__Level_3__segmentation(_data_computation)?__seg[.]seg[.]txt$",
-                      TRUE,
-                      .cacheName("CNACGH", i, trim(plinks)),
-                      FALSE,destdir,forceDownload,runDate)
-          #Get selected type only
-          tmpMat = fread(export.file,
-                         header=TRUE,colClasses=c("character","numeric","numeric","numeric","numeric","numeric"),
-                         data.table = FALSE)
-          #tmpMat = read.delim(paste0(runDate,"-",dataset,"-CNACGH-",listCount,".txt",sep=""),header=TRUE,colClasses=c("character","numeric","numeric",
-          #                                                                                               "numeric","numeric"))
-          tmpReturn <- new("FirehoseCGHArray",Filename=i,DataMatrix=tmpMat)
-          dataLists[[listCount]] <- tmpReturn
-          listCount = listCount + 1
-        }
-      }
-      resultClass@CNACGH <- dataLists
-    }
-
-    #Download methylation
+      resultClass@CNACGH <- .readCGH(links("CNACGH"), ctx)
     if (Methylation)
-    {
-      #Search for links
-      plinks <- .archiveLinks("Methylation", dataset, doc)
-
-      dataLists <- list()
-      listCount = 1
-      for(ii in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,ii),dataset,
-                      "-Methylation.tar.gz",
-                      "[.]methylation__.*.__Level_3__within_bioassay_data_set_function__data.data.txt$",
-                      TRUE,
-                      .cacheName("Methylation", ii, trim(plinks)),FALSE,destdir,forceDownload,runDate)
-
-          #Get selected type only
-          tmpCols <- read.delim(export.file,nrows=1,colClasses="character")
-          BetaCols <- which(tmpCols[1L,] == "Beta_value")
-          fixedCols <- match(c("Composite Element REF", "Gene_Symbol", "Chromosome", "Genomic_Coordinate"), tmpCols[1L, ])
-          colOrder <- c(fixedCols, BetaCols)
-
-          tmpMat <- fread(export.file,header=FALSE,colClasses = "character", select=colOrder, data.table = FALSE)
-          fixedCols <- match(c("Composite Element REF", "Gene_Symbol", "Chromosome", "Genomic_Coordinate"), tmpMat[2L, ])
-          BetaCols <- which(tmpMat[2L, ] == "Beta_value")
-          colOrder <- c(fixedCols, BetaCols)
-          tmpMat <- tmpMat[, colOrder]
-          tmpMat[2L, ] <- gsub(" ", "", tmpMat[2L, ])
-          firstFixed <- seq_along(fixedCols)
-          BetaCols <- setdiff(seq_along(tmpMat), firstFixed)
-          colnames(tmpMat) <- unlist(c(tmpMat[2L, firstFixed], tmpMat[1L, BetaCols]))
-
-          tmpMat <- tmpMat[-c(1:2),]
-          removeQM <- grepl("\\?\\|",tmpMat[,1])
-          tmpMat <- tmpMat[!removeQM,]
-          names1 <- tmpMat[,1]
-          tmpMat <- tmpMat[,-1]
-          rownames(tmpMat) <- names1
-          tmpReturn <- new("FirehoseMethylationArray",Filename=ii,DataMatrix=tmpMat)
-          dataLists[[listCount]] <- tmpReturn
-          listCount = listCount + 1
-        }
-      }
-      resultClass@Methylation <- dataLists
-    }
-
-    #Download mRNA array
-    if (mRNAArray)
-    {
-      #Search for links
-      plinks <- .archiveLinks("mRNAArray", dataset, doc)
-      plinks = unique(plinks[plinks != ""])
-      dataLists <- list()
-      listCount = 1
-      for(ii in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,ii),dataset,
-                      "-mRNAArray.tar.gz",
-                      "",
-                      TRUE,
-                      .cacheName("mRNAArray", ii, trim(plinks)),
-                      TRUE,destdir,forceDownload,runDate)
-          tmpReturn <- new("FirehosemRNAArray",Filename=ii,
-                           DataMatrix=.makeExprMat(export.file,"","mRNAArray",1000,TRUE))
-          dataLists[[listCount]] <- tmpReturn
-          listCount = listCount + 1
-        }
-      }
-      resultClass@mRNAArray <- dataLists
-    }
-
-    #Download miRNA array
-    if (miRNAArray)
-    {
-      #Search for links
-      plinks <- .archiveLinks("miRNAArray", dataset, doc)
-      plinks = unique(plinks[plinks != ""])
-
-      dataLists <- list()
-      listCount = 1
-      for(ii in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,ii),dataset,
-                      "-miRNAArray.tar.gz",
-                      "",
-                      TRUE,
-                      .cacheName("miRNAArray", ii, trim(plinks)),
-                      TRUE,destdir,forceDownload,runDate)
-          tmpReturn <- new("FirehosemRNAArray",Filename=ii,
-                           DataMatrix=.makeExprMat(export.file,"","miRNAArray",100,TRUE))
-          dataLists[[listCount]] <- tmpReturn
-          listCount = listCount + 1
-        }
-      }
-      resultClass@miRNAArray <- dataLists
-    }
-
-    #Download RPPA array
-    if (RPPAArray)
-    {
-      #Search for links
-      plinks <- .archiveLinks("RPPAArray", dataset, doc)
-      plinks = unique(plinks[plinks != ""])
-
-      dataLists <- list()
-      listCount = 1
-      for(ii in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit))
-        {
-          export.file <- .exportFiles(paste0(fh_url,ii),dataset,
-                      "-RPPAArray.tar.gz",
-                      "",
-                      TRUE,
-                      .cacheName("RPPAArray", ii, trim(plinks)),
-                      TRUE,destdir,forceDownload,runDate)
-          tmpReturn <- new("FirehosemRNAArray",Filename=ii,
-                           DataMatrix=.makeExprMat(export.file,"","RPPAArray",100,TRUE))
-          dataLists[[listCount]] <- tmpReturn
-          listCount = listCount + 1
-        }
-      }
-      resultClass@RPPAArray <- dataLists
-    }
-
-    #Download RPPA array
+      resultClass@Methylation <- .readMethylation(links("Methylation"), ctx)
+    for (type in c("mRNAArray", "miRNAArray", "RPPAArray"))
+      if (get(type))
+        methods::slot(resultClass, type) <- .readArrays(type, links(type), ctx)
     if (Mutation)
-    {
-      #Search for links
-      plinks <- .archiveLinks("Mutation", dataset, doc)
-      plinks = unique(plinks[plinks != ""])
-
-      dataLists <- list()
-      listCount = 1
-      for(ii in trim(plinks))
-      {
-        if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit))
-        {
-          allsampsfile <- paste0(destdir,"/",runDate,"-",dataset,"-Mutations-AllSamples.txt")
-          if (forceDownload || !file.exists(allsampsfile)) {
-            download_link = paste(fh_url,ii,sep="")
-            tarfile <- file.path(destdir, paste0(dataset, "-Mutation.tar.gz"))
-            download.file(url=download_link,destfile=tarfile,method="auto",quiet = FALSE, mode = "wb")
-            fileList <- untar(tarfile, list = TRUE)
-            grepSearch = "MANIFEST.txt"
-            fileList = fileList[!grepl(grepSearch,fileList)]
-            ###
-            untar(tarfile, files = fileList, exdir = destdir)
-            datalist <- lapply(file.path(destdir, fileList),FUN=function(files) {
-              read.delim(files,header=TRUE,colClasses="character")
-            })
-            retMutations <- .rbindMAFs(datalist)
-            delFolder <- file.path(destdir, dirname(fileList[[1L]]))
-            unlink(delFolder, recursive = TRUE)
-            file.remove(tarfile)
-            write.table(retMutations,file=allsampsfile,sep="\t",row.names=FALSE,quote=FALSE)
-          } else {
-            retMutations <- fread(allsampsfile,header=TRUE,colClasses="character", data.table = FALSE)
-          }
-          resultClass@Mutation <- retMutations
-        }
-      }
-    }
+      resultClass <- .setSlot(resultClass, "Mutation",
+          .readMutation(links("Mutation"), ctx))
   }
   if (GISTIC) {
     tag <- switch(dataset, SKCM = "TM", LAML = "TB", "TP")
     dset <- paste0(dataset, "-", tag)
-    ##build URL for getting file links
-    fh_url <- "https://gdac.broadinstitute.org/runs/analyses__"
-    fh_url <- paste(fh_url, substr(gistic2Date, 1, 4), "_",
-        substr(gistic2Date, 5, 6), "_", substr(gistic2Date, 7, 8),
-        "/data/", sep="")
-    fh_url <- paste(fh_url, dset, "/", gistic2Date, "/", sep="")
-    doc <- .files_from_html_table(fh_url)
-    #Search for links
-    plinks <- .archiveLinks("GISTIC", dset, doc)
-    for (ii in trim(plinks))
-    {
-      if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit)) {
-        if (forceDownload || !file.exists(paste0(destdir,"/",gistic2Date,"-",dataset,"-all_thresholded.by_genes.txt"))) {
-          download_link <- paste(fh_url, ii, sep = "")
-          fileLoc <- file.path(destdir, paste0(dataset,"-Gistic2.tar.gz"))
-          download.file(url = download_link, destfile = fileLoc,
-            method = "auto", quiet = FALSE, mode = "wb")
-
-          fileList <- untar(fileLoc, list = TRUE)
-          grepSearch = "all_data_by_genes.txt"
-          fileList = fileList[grepl(grepSearch,fileList)]
-          untar(fileLoc, files = fileList, exdir = destdir)
-          filepaths <- file.path(destdir, fileList)
-          tmpCNAll = fread(filepaths, header = TRUE, colClasses = "character",
-              data.table = FALSE)
-          file.rename(from = filepaths,
-            to = paste0(destdir, "/", gistic2Date, "-",
-                dataset, "-all_data_by_genes.txt"))
-
-          fileList <- untar(fileLoc, list = TRUE)
-          grepSearch = "all_thresholded.by_genes.txt"
-          fileList = fileList[grepl(grepSearch,fileList)]
-          untar(fileLoc, files = fileList, exdir = destdir)
-          filepaths <- file.path(destdir, fileList)
-          tmpCNThreshhold = fread(filepaths, header = TRUE,
-              colClasses = "character", data.table = FALSE)
-          file.rename(from = filepaths,
-            to = paste0(destdir, "/", gistic2Date, "-",
-                dataset, "-all_thresholded.by_genes.txt"))
-
-          fileList <- untar(fileLoc, list = TRUE)
-          grepSearch = "all_lesions.conf_99.txt"
-          fileList = fileList[grepl(grepSearch,fileList)]
-          untar(fileLoc, files = fileList, exdir = destdir)
-          filepaths <- file.path(destdir, fileList)
-          tmpPeaks <- fread(filepaths, header = TRUE,
-              colClasses = "character", data.table = FALSE)
-          file.rename(from = filepaths,
-            to = paste0(destdir, "/", gistic2Date, "-",
-                dataset, "-all_lesions.conf_99.txt"))
-
-          delFodler <- file.path(destdir, dirname(fileList))
-          unlink(delFodler, recursive = TRUE)
-          file.remove(fileLoc)
-        } else {
-          tmpCNThreshhold = fread(paste0(destdir,"/",gistic2Date,"-",dataset,"-all_thresholded.by_genes.txt"),header=TRUE,colClasses = "character", data.table = FALSE)
-          tmpCNAll = fread(paste0(destdir,"/",gistic2Date,"-",dataset,"-all_data_by_genes.txt"),header=TRUE,colClasses="character", data.table = FALSE)
-          tmpPeaks = fread(paste0(destdir, "/", gistic2Date, "-", dataset, "-all_lesions.conf_99.txt"), header = TRUE, colClasses = "character", data.table = FALSE)
-        }
-        tmpReturn <- new("FirehoseGISTIC",Dataset=dataset,AllByGene=data.frame(tmpCNAll),
-            ThresholdedByGene=data.frame(tmpCNThreshhold), Peaks = data.frame(tmpPeaks))
-        resultClass@GISTIC <- tmpReturn
-      }
-    }
+    ctx <- .fhContext(.fhURL("analyses", gistic2Date, dset), dataset,
+        gistic2Date, destdir, forceDownload, fileSizeLimit)
+    doc <- .files_from_html_table(ctx[["url"]])
+    resultClass <- .setSlot(resultClass, "GISTIC",
+        .readGISTIC(.archiveLinks("GISTIC", dset, doc), ctx))
   }
 
   return(resultClass)
+}
+
+## ---- getFirehoseData() readers -----------------------------------------
+## One reader per data type. 'ctx' (from .fhContext) holds the run URL,
+## cohort, date and download options. Single-table readers return NULL when
+## no archive was read, so the slot keeps its default.
+
+## Firehose run directory: 'stddata' (runDate) or 'analyses' (gistic2Date)
+.fhURL <- function(kind, date, dataset) {
+    paste0("https://gdac.broadinstitute.org/runs/", kind, "__",
+        substr(date, 1L, 4L), "_", substr(date, 5L, 6L), "_",
+        substr(date, 7L, 8L), "/data/", dataset, "/", date, "/")
+}
+
+.fhContext <- function(url, dataset, date, destdir, forceDownload,
+    fileSizeLimit) {
+    list(url = url, dataset = dataset, date = date, destdir = destdir,
+        forceDownload = forceDownload, fileSizeLimit = fileSizeLimit)
+}
+
+.setSlot <- function(object, name, value) {
+    if (!is.null(value))
+        methods::slot(object, name) <- value
+    object
+}
+
+.trimWS <- function(x) gsub("^\\s+|\\s+$", "", x)
+
+## FUN(archive) for each archive under the size limit, in listing order;
+## sizes are checked one archive at a time, before its download
+.forArchives <- function(links, ctx, FUN) {
+    res <- list()
+    for (i in .trimWS(links)) {
+        if (.checkFileSize(paste0(ctx[["url"]], i), ctx[["fileSizeLimit"]]))
+            res[[length(res) + 1L]] <- FUN(i)
+    }
+    res
+}
+
+## the last archive read wins for single-table slots
+.lastOrNULL <- function(res) if (length(res)) res[[length(res)]]
+
+## download (or reuse) an archive and extract one file; see .exportFiles
+.fetchArchive <- function(archive, ctx, fileExt, searchName, subSearch,
+    exportName, manifest = FALSE) {
+    .exportFiles(paste0(ctx[["url"]], archive), ctx[["dataset"]], fileExt,
+        searchName, subSearch, exportName, manifest, ctx[["destdir"]],
+        ctx[["forceDownload"]], ctx[["date"]])
+}
+
+.readClinical <- function(links, ctx) {
+    .lastOrNULL(.forArchives(links, ctx, function(i) {
+        export.file <- .fetchArchive(i, ctx, "-Clinical.tar.gz",
+            "*.clin.merged.picked.txt$", FALSE, "-Clinical.txt")
+        raw.clin <- read.delim(export.file, colClasses = "character",
+            check.names = FALSE)
+        ## the 'Composite Element REF' row only holds the word 'value'
+        raw.clin <- raw.clin[raw.clin[[1L]] != "Composite Element REF", ,
+            drop = FALSE]
+        .clinicalFrame(raw.clin)
+    }))
+}
+
+## RNASeqGene ('RNAseq', v1) and RNASeq2Gene ('RNAseq2', RSEM)
+.readRNAseq <- function(type, links, ctx, RNAseqNorm, RNAseqPlatform) {
+    links <- .trimWS(links)
+    v2 <- identical(type, "RNASeq2Gene")
+    cacheType <- if (v2) "RNAseq2Gene" else "RNAseqGene"
+    ## one platform only (BUG-31); cached by archive, so neither
+    ## forceDownload nor an earlier call changes which data are returned
+    sel <- .selectRNAseqPlatform(links, RNAseqPlatform, ctx[["dataset"]],
+        type)
+    .lastOrNULL(.forArchives(sel, ctx, function(i) {
+        export.file <- .fetchArchive(i, ctx,
+            paste0("-", cacheType, ".tar.gz"),
+            if (v2) "[.]rnaseqv2__.*.__Level_3__RSEM_genes__data.data.txt$"
+            else "[.]rnaseq__.*.__Level_3__gene_expression__data.data.txt$",
+            TRUE, .cacheName(cacheType, i, links))
+        .makeExprMat(export.file, RNAseqNorm, if (v2) "RNAseq2" else "RNAseq",
+            mergeSize = 1000, arrayData = FALSE)
+    }))
+}
+
+## RNASeq2GeneNorm: RSEM normalized counts, or a mRNAseq_Preprocess file;
+## one FirehosemRNAArray per platform
+.readRNAseq2Norm <- function(links, ctx, RNAseq2Norm) {
+    counts <- identical(RNAseq2Norm, "normalized_counts")
+    searchName <-
+        if (counts)
+            "[.]rnaseqv2__.*.__Level_3__RSEM_genes_normalized__data.data.txt$"
+        else paste0(".*\\.mRNAseq_", RNAseq2Norm, "\\.txt$")
+    ## all sizes are checked first
+    sized <- vapply(links, function(x)
+        .checkFileSize(paste0(ctx[["url"]], x), ctx[["fileSizeLimit"]]),
+        logical(1L))
+    links <- unname(links[sized])
+    lapply(links, function(i) {
+        export.file <- .fetchArchive(i, ctx, "-RNAseq2GeneNorm.tar.gz",
+            searchName, TRUE,
+            .cacheName(paste0("RNAseq2GeneNorm-", RNAseq2Norm), i, links))
+        new("FirehosemRNAArray", Filename = i,
+            DataMatrix = .makeExprMat(export.file, RNAseq2Norm, "RNAseq2",
+                mergeSize = 1000, arrayData = TRUE,
+                headerRows = if (counts) 2L else 1L))
+    })
+}
+
+.readmiRNAseq <- function(links, ctx, miRNAtype) {
+    .lastOrNULL(.forArchives(links, ctx, function(i) {
+        export.file <- .fetchArchive(i, ctx, "-miRNAseqGene.tar.gz",
+            "[.]mirnaseq__.*.__Level_3__miR_gene_expression__data.data.txt$",
+            TRUE, paste0("-", miRNAtype, "-miRNAseqGene.txt"))
+        .makeExprMat(export.file, miRNAtype, "miRNAseq", mergeSize = 100,
+            arrayData = FALSE)
+    }))
+}
+
+## segment tables: Sample, Chromosome, Start, End, Num_Probes, Segment_Mean
+.SEG_CLASSES <- c("character", "numeric", "numeric", "numeric", "numeric",
+    "numeric")
+
+.readSegFile <- function(export.file) {
+    fread(export.file, header = TRUE, colClasses = .SEG_CLASSES,
+        data.table = FALSE)
+}
+
+## CNASNP, CNVSNP (SNP6, hg19) and CNASeq
+.readSegments <- function(type, links, ctx) {
+    spec <- switch(type,
+        CNASNP = c("-CNASNPHg19",
+            "[.]snp__.*.__Level_3__segmented_scna_hg19__seg.seg.txt$"),
+        CNVSNP = c("-CNVSNPHg19", paste0("[.]snp__.*.__Level_3__segmented",
+            "_scna_minus_germline_cnv_hg19__seg.seg.txt$")),
+        CNASeq = c("-CNAseq",
+            "[.]cna__.*.__Level_3__segmentation__seg.seg.txt$"))
+    .lastOrNULL(.forArchives(links, ctx, function(i) {
+        .readSegFile(.fetchArchive(i, ctx, paste0(spec[[1L]], ".tar.gz"),
+            spec[[2L]], TRUE, paste0(spec[[1L]], ".txt")))
+    }))
+}
+
+## HMS ('segmentation__seg') and MSKCC ('segmentation_data_computation__seg')
+## CGH segmentations, one FirehoseCGHArray per archive
+.readCGH <- function(links, ctx) {
+    all <- .trimWS(links)
+    .forArchives(links, ctx, function(i) {
+        export.file <- .fetchArchive(i, ctx, "-CNACGH.tar.gz", paste0(
+            "[.]cna__.*__Level_3__segmentation(_data_computation)?",
+            "__seg[.]seg[.]txt$"), TRUE, .cacheName("CNACGH", i, all))
+        new("FirehoseCGHArray", Filename = i,
+            DataMatrix = .readSegFile(export.file))
+    })
+}
+
+## beta values with probe annotation; one FirehoseMethylationArray per
+## platform (27k, 450k)
+.readMethylation <- function(links, ctx) {
+    all <- .trimWS(links)
+    fixed <- c("Composite Element REF", "Gene_Symbol", "Chromosome",
+        "Genomic_Coordinate")
+    .forArchives(links, ctx, function(ii) {
+        export.file <- .fetchArchive(ii, ctx, "-Methylation.tar.gz", paste0(
+            "[.]methylation__.*.__Level_3__within_bioassay_data_set",
+            "_function__data.data.txt$"), TRUE,
+            .cacheName("Methylation", ii, all))
+        tmpCols <- read.delim(export.file, nrows = 1, colClasses = "character")
+        BetaCols <- which(tmpCols[1L, ] == "Beta_value")
+        fixedCols <- match(fixed, tmpCols[1L, ])
+        colOrder <- c(fixedCols, BetaCols)
+
+        tmpMat <- fread(export.file, header = FALSE, colClasses = "character",
+            select = colOrder, data.table = FALSE)
+        fixedCols <- match(fixed, tmpMat[2L, ])
+        BetaCols <- which(tmpMat[2L, ] == "Beta_value")
+        colOrder <- c(fixedCols, BetaCols)
+        tmpMat <- tmpMat[, colOrder]
+        tmpMat[2L, ] <- gsub(" ", "", tmpMat[2L, ])
+        firstFixed <- seq_along(fixedCols)
+        BetaCols <- setdiff(seq_along(tmpMat), firstFixed)
+        colnames(tmpMat) <- unlist(c(tmpMat[2L, firstFixed],
+            tmpMat[1L, BetaCols]))
+
+        tmpMat <- tmpMat[-c(1:2), ]
+        removeQM <- grepl("\\?\\|", tmpMat[, 1])
+        tmpMat <- tmpMat[!removeQM, ]
+        names1 <- tmpMat[, 1]
+        tmpMat <- tmpMat[, -1]
+        rownames(tmpMat) <- names1
+        new("FirehoseMethylationArray", Filename = ii, DataMatrix = tmpMat)
+    })
+}
+
+## mRNAArray, miRNAArray and RPPAArray: one FirehosemRNAArray per platform
+.readArrays <- function(type, links, ctx) {
+    links <- unique(links[links != ""])
+    all <- .trimWS(links)
+    mergeSize <- if (identical(type, "mRNAArray")) 1000 else 100
+    .forArchives(links, ctx, function(ii) {
+        export.file <- .fetchArchive(ii, ctx, paste0("-", type, ".tar.gz"),
+            "", TRUE, .cacheName(type, ii, all), manifest = TRUE)
+        new("FirehosemRNAArray", Filename = ii,
+            DataMatrix = .makeExprMat(export.file, "", type, mergeSize, TRUE))
+    })
+}
+
+## per-sample MAF files, stacked and cached as one table
+.readMutation <- function(links, ctx) {
+    links <- unique(links[links != ""])
+    destdir <- ctx[["destdir"]]
+    dataset <- ctx[["dataset"]]
+    .lastOrNULL(.forArchives(links, ctx, function(ii) {
+        allsampsfile <- paste0(destdir, "/", ctx[["date"]], "-", dataset,
+            "-Mutations-AllSamples.txt")
+        if (ctx[["forceDownload"]] || !file.exists(allsampsfile)) {
+            tarfile <- file.path(destdir, paste0(dataset, "-Mutation.tar.gz"))
+            download.file(url = paste0(ctx[["url"]], ii), destfile = tarfile,
+                method = "auto", quiet = FALSE, mode = "wb")
+            fileList <- untar(tarfile, list = TRUE)
+            fileList <- fileList[!grepl("MANIFEST.txt", fileList)]
+            untar(tarfile, files = fileList, exdir = destdir)
+            datalist <- lapply(file.path(destdir, fileList), function(files)
+                read.delim(files, header = TRUE, colClasses = "character"))
+            retMutations <- .rbindMAFs(datalist)
+            unlink(file.path(destdir, dirname(fileList[[1L]])),
+                recursive = TRUE)
+            file.remove(tarfile)
+            write.table(retMutations, file = allsampsfile, sep = "\t",
+                row.names = FALSE, quote = FALSE)
+        } else {
+            retMutations <- fread(allsampsfile, header = TRUE,
+                colClasses = "character", data.table = FALSE)
+        }
+        retMutations
+    }))
+}
+
+## GISTIC2 by-gene and peak tables from the analyses run ('ctx[["date"]]'
+## is the gistic2Date)
+.readGISTIC <- function(links, ctx) {
+    destdir <- ctx[["destdir"]]
+    dataset <- ctx[["dataset"]]
+    cached <- function(f)
+        paste0(destdir, "/", ctx[["date"]], "-", dataset, "-", f)
+    files <- c(AllByGene = "all_data_by_genes.txt",
+        ThresholdedByGene = "all_thresholded.by_genes.txt",
+        Peaks = "all_lesions.conf_99.txt")
+    readGISTIC <- function(f) fread(f, header = TRUE,
+        colClasses = "character", data.table = FALSE)
+    .lastOrNULL(.forArchives(links, ctx, function(ii) {
+        if (ctx[["forceDownload"]] ||
+            !file.exists(cached("all_thresholded.by_genes.txt"))) {
+            fileLoc <- file.path(destdir, paste0(dataset, "-Gistic2.tar.gz"))
+            download.file(url = paste0(ctx[["url"]], ii), destfile = fileLoc,
+                method = "auto", quiet = FALSE, mode = "wb")
+            tabs <- list()
+            for (f in names(files)) {
+                fileList <- untar(fileLoc, list = TRUE)
+                fileList <- fileList[grepl(files[[f]], fileList)]
+                untar(fileLoc, files = fileList, exdir = destdir)
+                filepaths <- file.path(destdir, fileList)
+                tabs[[f]] <- readGISTIC(filepaths)
+                file.rename(from = filepaths, to = cached(files[[f]]))
+            }
+            ## the archive directory (of the last file extracted)
+            unlink(file.path(destdir, dirname(fileList)), recursive = TRUE)
+            file.remove(fileLoc)
+        } else {
+            tabs <- lapply(files[c("ThresholdedByGene", "AllByGene", "Peaks")],
+                function(f) readGISTIC(cached(f)))
+        }
+        new("FirehoseGISTIC", Dataset = dataset,
+            AllByGene = data.frame(tabs[["AllByGene"]]),
+            ThresholdedByGene = data.frame(tabs[["ThresholdedByGene"]]),
+            Peaks = data.frame(tabs[["Peaks"]]))
+    }))
 }
 
 .setCache <- function(
