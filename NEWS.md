@@ -1,4 +1,4 @@
-## Changes in version 2.44.0
+## Changes in version 2.46.0
 
 ### Significant user-visible changes
 

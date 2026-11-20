@@ -111,7 +111,7 @@ test_that("accmini clinical data use patient barcodes", {
     expect_identical(dim(accmini@clinical), c(92L, 17L))
 })
 
-test_that("updateObject converts clinical data from before 2.44.0", {
+test_that("updateObject converts clinical data from before 2.46.0", {
     old <- accmini
     oldcl <- data.frame(`Composite Element REF` = c("value", "value"),
         years_to_birth = c("58", "44"), check.names = FALSE,

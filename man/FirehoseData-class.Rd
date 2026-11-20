@@ -53,7 +53,7 @@ An S4 class to store main data object from clinent function.
 \code{FirehoseData}
 
 \item \code{updateObject(FirehoseData)}: Update an old RTCGAToolbox FirehoseData object to
-the most recent API. Clinical data from versions before 2.44.0 get
+the most recent API. Clinical data from versions before 2.46.0 get
 standard patient barcodes as row names (\code{tcga.or.a5j1} becomes
 \code{TCGA-OR-A5J1}) and lose the \verb{Composite Element REF} column.
 

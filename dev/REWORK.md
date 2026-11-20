@@ -110,7 +110,11 @@ alignment).
 ### Phase 4 — removals (Bioc index check first) and API decisions
 - [x] Remove dead internals.
 - [x] Deprecate `getUUIDs` (BUG-15).
-- [ ] Remove `.barcodeUUID` and the RJSONIO import (after the deprecation cycle).
+- [ ] `getUUIDs` deprecation cycle. This work reaches Bioconductor after
+      the 3.24 release (RTCGAToolbox 2.44.0 ships without it), so:
+      deprecated in 3.25 (2.46.0); defunct in 3.26 (2.48.0): pass
+      `cycle = "defunct"` to `.lifeCycleArg()` and remove `.barcodeUUID`,
+      the RJSONIO import and `RCurl::getURL`; argument removed in 3.27.
 - [x] BUG-30: platform-named cache files for the other list slots.
 - [x] BUG-31: GA + HiSeq archives in single-table RNA-seq slots (`RNAseqPlatform`).
 - [x] BUG-11: RaggedExperiment from biocExtract for CN/Mutation.

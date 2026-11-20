@@ -329,7 +329,7 @@ setMethod("showResults", "CorResult",function(object){
     !isTRUE(methods::.hasSlot(object, "RNASeq2Gene"))
 }
 
-## clinical data from before 2.44.0: lower-case dotted patient ids
+## clinical data from before 2.46.0: lower-case dotted patient ids
 ## ('tcga.or.a5j1') and a 'Composite Element REF' column of 'value'
 .hasOldClinical <- function(object) {
     cl <- object@clinical
@@ -356,7 +356,7 @@ setMethod("showResults", "CorResult",function(object){
 }
 
 #' @describeIn FirehoseData Update an old RTCGAToolbox FirehoseData object to
-#'   the most recent API. Clinical data from versions before 2.44.0 get
+#'   the most recent API. Clinical data from versions before 2.46.0 get
 #'   standard patient barcodes as row names (`tcga.or.a5j1` becomes
 #'   `TCGA-OR-A5J1`) and lose the `Composite Element REF` column.
 #'
