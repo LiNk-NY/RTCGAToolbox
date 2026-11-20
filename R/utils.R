@@ -598,6 +598,22 @@
     return(object)
 }
 
+## Y/N flags (the miRNA-seq 'cross-mapped' columns) to a logical matrix:
+## "Y" is TRUE, "N" is FALSE, "" and "NA" are NA; anything else is an error
+.toLogicalMatrix <- function(m, context = "the") {
+    vals <- as.vector(m)
+    vals[vals %in% c("", "NA")] <- NA_character_
+    bad <- !is.na(vals) & !vals %in% c("Y", "N")
+    if (any(bad))
+        stop("Values other than Y/N in ", context, " data: ",
+            paste(utils::head(unique(vals[bad]), 5L), collapse = ", "),
+            call. = FALSE)
+    lgl <- vals == "Y"
+    dim(lgl) <- dim(m)
+    dimnames(lgl) <- dimnames(m)
+    lgl
+}
+
 ## Convert a character matrix read with colClasses = "character" to numeric
 ## without losing information. "", "NA" and "null" (used by Firehose array
 ## files) become NA; any other value that is not a number is an error

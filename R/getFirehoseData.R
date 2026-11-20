@@ -38,9 +38,11 @@
 
     ids <- dat[[1L]]
     keep <- !grepl("?|", ids, fixed = TRUE)
-    mat <- .toNumericMatrix(
-        as.matrix(dat[keep, -1L, drop = FALSE]), context = dataType
-    )
+    vals <- as.matrix(dat[keep, -1L, drop = FALSE])
+    ## miRNA-seq 'cross-mapped' columns are Y/N flags (BUG-32)
+    mat <- if (identical(normMethod, "cross-mapped"))
+        .toLogicalMatrix(vals, context = dataType)
+    else .toNumericMatrix(vals, context = dataType)
     dimnames(mat) <- list(.geneRowNames(ids[keep]), samples)
     mat
 }
@@ -419,6 +421,8 @@
 #' @param miRNASeqGeneType Character (default "read_count") Indicate which type
 #'   of data should be pulled from the miRNASeqGene data. Must be one of
 #'   "reads_per_million_miRNA_mapped", "read_count", or "cross-mapped".
+#'   "cross-mapped" gives a logical matrix: `TRUE` where reads of the miRNA
+#'   also mapped to other miRNAs (`Y` in the Firehose file).
 #' @param CNASNP Logical (default FALSE) somatic copy number alterations data
 #'   from SNP array, not filtered for germline CNVs
 #'   (Firehose `segmented_scna_hg19`).

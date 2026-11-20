@@ -56,7 +56,9 @@ see \code{RNAseqNorm} argument.}
 
 \item{miRNASeqGeneType}{Character (default "read_count") Indicate which type
 of data should be pulled from the miRNASeqGene data. Must be one of
-"reads_per_million_miRNA_mapped", "read_count", or "cross-mapped".}
+"reads_per_million_miRNA_mapped", "read_count", or "cross-mapped".
+"cross-mapped" gives a logical matrix: \code{TRUE} where reads of the miRNA
+also mapped to other miRNAs (\code{Y} in the Firehose file).}
 
 \item{RNASeq2GeneNorm}{Logical (default FALSE) RNAseq v2 (RSEM processed)
 data.}

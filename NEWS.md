@@ -38,6 +38,11 @@ ignored. Use `TCGAutils::barcodeToUUID()` instead; see
 
 ### Bug fixes and minor improvements
 
+* `getFirehoseData(miRNASeqGene = TRUE, miRNASeqGeneType = "cross-mapped")`
+now returns a logical matrix (`TRUE` where the Firehose file has `Y`, i.e.
+reads of the miRNA also mapped to other miRNAs). The column holds Y/N flags,
+so this option failed with "Non-numeric values in miRNAseq data".
+
 * `getFirehoseData()` gains `RNAseqPlatform` to choose between Illumina GA
 and HiSeq data for `RNASeqGene` and `RNASeq2Gene`. Six cohorts have data
 from both platforms, with different samples:

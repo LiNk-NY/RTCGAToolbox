@@ -423,6 +423,21 @@ test_that("miRNASeqGeneType selects the column and the cache file name", {
     expect_error(fetch("miRNASeqGene", dest, miRNASeqGeneType = "bogus"))
 })
 
+test_that("miRNASeqGeneType = 'cross-mapped' gives a logical matrix", {
+    ## BUG-32: the column holds Y/N flags and always errored
+    cnt <- local_fake_firehose(fh)
+    dest <- withr::local_tempdir()
+    x <- fetch("miRNASeqGene", dest, miRNASeqGeneType = "cross-mapped")
+    expect_identical(x@miRNASeqGene, matrix(c(FALSE, TRUE, FALSE, FALSE), 2L,
+        dimnames = list(c("hsa-let-7a-1", "hsa-let-7a-2"),
+            unname(BC[c("S1", "S2")]))))
+    expect_true(file.exists(file.path(dest,
+        "20160128-ACC-cross-mapped-miRNAseqGene.txt")))
+    se <- quiet(biocExtract(x, "miRNASeqGene"))
+    expect_identical(unname(SummarizedExperiment::assay(se)),
+        unname(x@miRNASeqGene))
+})
+
 test_that("RNAseq2Norm = RSEM_normalized_log2 reads mRNAseq_Preprocess", {
     cnt <- local_fake_firehose(fh)
     dest <- withr::local_tempdir()

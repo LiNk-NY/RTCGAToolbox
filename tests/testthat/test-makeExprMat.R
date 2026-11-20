@@ -133,3 +133,15 @@ test_that(".makeExprMat errors on non-numeric values", {
     expect_error(quiet(ns$.makeExprMat(bad, "", "mRNAArray", arrayData = TRUE)),
         "Non-numeric values in mRNAArray data: 1.5abc")
 })
+
+test_that(".toLogicalMatrix converts Y/N flags", {
+    m <- matrix(c("Y", "N", "", "NA"), 2L, dimnames = list(c("a", "b"),
+        c("s1", "s2")))
+    expect_identical(ns$.toLogicalMatrix(m), matrix(c(TRUE, FALSE, NA, NA),
+        2L, dimnames = dimnames(m)))
+    expect_error(ns$.toLogicalMatrix(matrix(c("Y", "yes"))),
+        "Values other than Y/N in the data: yes")
+    expect_identical(dim(ns$.toLogicalMatrix(matrix(character(0L), 0L, 2L))),
+        c(0L, 2L))
+})
+
