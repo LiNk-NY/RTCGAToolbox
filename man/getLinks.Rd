@@ -61,7 +61,9 @@ from SNP array with germline CNVs removed
 from sequencing.}
 
 \item{CNACGH}{Logical (default FALSE) somatic copy number alterations data
-from CGH.}
+from CGH. Segmentations from both Harvard (HMS) and Memorial Sloan
+Kettering (MSKCC) arrays are downloaded, one \code{FirehoseCGHArray} per
+platform.}
 
 \item{Methylation}{Logical (default FALSE) methylation data.}
 
