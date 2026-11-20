@@ -36,49 +36,24 @@ getLinks <- function(dataset, data_date="20160128",
 
     doc <- .files_from_html_table(fh_url)
 
-    paste0(
-        fh_url,
-    if (RNASeqGene)
-        .getLinks("Level_3__gene_expression__data.Level_3", "*.Merge_rnaseq__.*._rnaseq__.*.tar[.]gz$", NULL, doc)
-    else if (RNASeq2Gene)
-        .getLinks("Level_3__RSEM_genes__data.Level_3", "*.Merge_rnaseqv2__.*._rnaseqv2__.*.tar[.]gz$", NULL, doc)
-    else if (clinical)
-        .getLinks(".Clinical_Pick_Tier1.Level_4", "*.tar[.]gz$", NULL, doc)
-    else if (miRNASeqGene)
-        .getLinks("Level_3__miR_gene_expression__data.Level_3", "[.]Merge_mirnaseq__.*.hiseq_mirnaseq__.*.tar[.]gz$", dataset, doc)
-    else if (RNASeq2GeneNorm) {
-        RNAseq2Norm <- match.arg(RNAseq2Norm)
-        if (!identical(RNAseq2Norm, "normalized_counts"))
-            .getLinks("mRNAseq_Preprocess",".*\\.Level_3\\..*\\.tar\\.gz$",NULL,doc)
-        else
-            .getLinks("Level_3__RSEM_genes_normalized__data.Level_3", "*.Merge_rnaseqv2__.*._rnaseqv2__.*.tar[.]gz$", NULL, doc)
-    } else if (CNASNP)
-        .getLinks("Level_3__segmented_scna_hg19__seg.Level_3", "[.]Merge_snp__.*.__Level_3__segmented_scna_hg19__seg.Level_3.*.tar[.]gz$", dataset, doc)
-    else if (CNVSNP)
-        .getLinks("Level_3__segmented_scna_minus_germline_cnv_hg19__seg.Level_3", "[.]Merge_snp__.*.__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.Level_3.*.tar[.]gz$", dataset, doc)
-    else if (CNASeq)
-        .getLinks("__Level_3__segmentation__seg.Level_3", "[.]Merge_cna__.*.dnaseq.*.__Level_3__segmentation__seg.Level_3.*.tar[.]gz$", dataset, doc)
-    else if (CNACGH)
-        .getLinks(.CGH_LEVEL3, .CGH_ARCHIVE, dataset, doc)
-    else if (Methylation)
-        .getLinks("__Level_3__within_bioassay_data_set_function__data.Level_3", "[.]Merge_methylation__.*.methylation.*.__Level_3__within_bioassay_data_set_function__data.Level_3.*.tar[.]gz$", dataset, doc)
-    else if (Mutation)
-        .getLinks("Mutation_Packager_Calls", "[.]Mutation_Packager_Calls[.]Level_3[.].*.tar[.]gz$", dataset, doc)
-    else if (mRNAArray)
-        c(
-            .getLinks("Merge_transcriptome__agilentg4502a_07", "[.]Merge_transcriptome__agilentg4502a_.*.__Level_3__unc_lowess_normalization_gene_level__data.Level_3.*.tar[.]gz$", dataset, doc),
-            .getLinks("Merge_transcriptome__ht_hg_u133a", "[.]Merge_transcriptome__ht_hg_u133a__.*.__Level_3__gene_rma__data.Level_3.*.tar[.]gz$", dataset, doc),
-            .getLinks("Merge_exon__huex_1_0_st_v2", "[.]Merge_exon__huex_1_0_st_v2__.*.__Level_3__quantile_normalization_gene__data.Level_3.*.tar[.]gz$", dataset, doc)
-        )
-    else if (miRNAArray)
-        .getLinks("h_mirna_8x15k", "[.]Merge_mirna__h_mirna_8x15k.*.data.Level_3.*.tar[.]gz$", dataset, doc)
-    else if (RPPAArray)
-        .getLinks("rppa_core", "[.]Merge_protein_exp.*.protein_normalization__data.Level_3.*.tar[.]gz$", dataset, doc)
-    else if (GISTIC) {
+    ## the first selected data type, in this order, is used
+    ## (each flag is tested with if (), as before)
+    types <- vapply(list(RNASeqGene = RNASeqGene, RNASeq2Gene = RNASeq2Gene,
+        clinical = clinical, miRNASeqGene = miRNASeqGene,
+        RNASeq2GeneNorm = RNASeq2GeneNorm, CNASNP = CNASNP, CNVSNP = CNVSNP,
+        CNASeq = CNASeq, CNACGH = CNACGH, Methylation = Methylation,
+        Mutation = Mutation, mRNAArray = mRNAArray, miRNAArray = miRNAArray,
+        RPPAArray = RPPAArray, GISTIC = GISTIC),
+        function(x) if (x) TRUE else FALSE, logical(1L))
+    type <- names(types)[types][1L]
+    if (is.na(type))
+        return(fh_url)
+    if (identical(type, "RNASeq2GeneNorm") &&
+        !identical(match.arg(RNAseq2Norm), "normalized_counts"))
+        type <- "mRNAseq_Preprocess"
+    if (identical(type, "GISTIC")) {
         tag <- switch(dataset, SKCM = "TM", LAML = "TB", "TP")
-        dset <- paste0(dataset, "-", tag)
-        .getLinks("CopyNumber_Gistic2.Level_4", "[.]CopyNumber_Gistic2[.]Level_4.*.tar[.]gz$", dset, doc)
+        dataset <- paste0(dataset, "-", tag)
     }
-    )
+    paste0(fh_url, .archiveLinks(type, dataset, doc))
 }
-

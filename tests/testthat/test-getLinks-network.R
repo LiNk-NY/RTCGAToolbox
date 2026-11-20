@@ -119,3 +119,30 @@ test_that("getBroadSubtypes builds the URL and falls back to mRNAseq", {
     expect_error(getBroadSubtypes("SKCM"), "valid clustering")
     expect_error(getBroadSubtypes(c("A", "B"), "CNMF"), "valid cancer code")
 })
+
+test_that("getLinks and getFirehoseData share one archive pattern table", {
+    ## every data type of getFirehoseData() has an entry
+    expect_setequal(names(ns$.FH_ARCHIVES), c("clinical", "RNASeqGene",
+        "RNASeq2Gene", "RNASeq2GeneNorm", "mRNAseq_Preprocess",
+        "miRNASeqGene", "CNASNP", "CNVSNP", "CNASeq", "CNACGH",
+        "Methylation", "mRNAArray", "miRNAArray", "RPPAArray", "Mutation",
+        "GISTIC"))
+    for (sp in unlist(ns$.FH_ARCHIVES, recursive = FALSE))
+        expect_named(sp, c("filter", "archive", "cohort"))
+    expect_error(ns$.archiveLinks("foo", "ACC", character(0L)),
+        "no Firehose archive pattern")
+    ## cohort-anchored types do not pick up a sibling cohort (BRCA-FFPE)
+    doc <- paste0("gdac.broadinstitute.org_", c("BRCA", "BRCA-FFPE"),
+        ".Mutation_Packager_Calls.Level_3.2016012800.0.0.tar.gz")
+    expect_identical(ns$.archiveLinks("Mutation", "BRCA", doc), doc[1L])
+})
+
+test_that("getLinks without a data type, or with an invalid flag", {
+    local_mocked_bindings(.files_from_html_table = function(url)
+        fh$std_listing, .package = "RTCGAToolbox")
+    expect_identical(getLinks("ACC"), std_url)
+    expect_error(getLinks("ACC", Methylation = NA))
+    ## the first selected type is used, as before
+    expect_identical(getLinks("ACC", RNASeq2Gene = TRUE, clinical = TRUE),
+        getLinks("ACC", RNASeq2Gene = TRUE))
+})

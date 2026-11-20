@@ -87,12 +87,6 @@
     )
 }
 
-## CNACGH archives: HMS ('segmentation__seg') and MSKCC
-## ('segmentation_data_computation__seg') segmentations
-.CGH_LEVEL3 <- "__Level_3__segmentation(_data_computation)?__seg[.]Level_3"
-.CGH_ARCHIVE <- paste0("[.]Merge_cna__.*cgh.*__Level_3__",
-    "segmentation(_data_computation)?__seg[.]Level_3.*[.]tar[.]gz$")
-
 ## Name of the cached file for a Firehose archive. Files are named by
 ## archive, never by position in the link list: positions shift with
 ## 'fileSizeLimit' (skipped archives) and would map a cached file onto
@@ -119,6 +113,80 @@
         stop("Firehose archives share a cache name: ",
             paste(unique(keys[duplicated(keys)]), collapse = ", "))
     paste0("-", type, "-", .archiveKey(archive), ".txt")
+}
+
+## Firehose archive patterns for each data type, shared by getFirehoseData()
+## and getLinks(). Each spec is passed to .getLinks(): 'filter' selects
+## candidate file names, 'archive' the archive itself; with 'cohort = TRUE'
+## the archive pattern must follow the cohort name (e.g. 'BRCA.Merge_...',
+## which excludes 'BRCA-FFPE.Merge_...'). Specs are searched in order.
+.fhSpec <- function(filter, archive, cohort = TRUE)
+    list(filter = filter, archive = archive, cohort = cohort)
+
+.FH_ARCHIVES <- list(
+    clinical = list(.fhSpec(".Clinical_Pick_Tier1.Level_4", "*.tar[.]gz$",
+        cohort = FALSE)),
+    RNASeqGene = list(.fhSpec("Level_3__gene_expression__data.Level_3",
+        "*.Merge_rnaseq__.*._rnaseq__.*.tar[.]gz$", cohort = FALSE)),
+    RNASeq2Gene = list(.fhSpec("Level_3__RSEM_genes__data.Level_3",
+        "*.Merge_rnaseqv2__.*._rnaseqv2__.*.tar[.]gz$", cohort = FALSE)),
+    ## RNASeq2GeneNorm with RNAseq2Norm = "normalized_counts"
+    RNASeq2GeneNorm = list(.fhSpec(
+        "Level_3__RSEM_genes_normalized__data.Level_3",
+        "*.Merge_rnaseqv2__.*._rnaseqv2__.*.tar[.]gz$", cohort = FALSE)),
+    ## RNASeq2GeneNorm with any other RNAseq2Norm
+    mRNAseq_Preprocess = list(.fhSpec("mRNAseq_Preprocess",
+        ".*\\.Level_3\\..*\\.tar\\.gz$", cohort = FALSE)),
+    miRNASeqGene = list(.fhSpec("Level_3__miR_gene_expression__data.Level_3",
+        "[.]Merge_mirnaseq__.*.hiseq_mirnaseq__.*.tar[.]gz$")),
+    CNASNP = list(.fhSpec("Level_3__segmented_scna_hg19__seg.Level_3",
+        "[.]Merge_snp__.*.__Level_3__segmented_scna_hg19__seg.Level_3.*.tar[.]gz$")),
+    CNVSNP = list(.fhSpec(
+        "Level_3__segmented_scna_minus_germline_cnv_hg19__seg.Level_3",
+        paste0("[.]Merge_snp__.*.__Level_3__segmented_scna_minus_germline",
+            "_cnv_hg19__seg.Level_3.*.tar[.]gz$"))),
+    CNASeq = list(.fhSpec("__Level_3__segmentation__seg.Level_3",
+        "[.]Merge_cna__.*.dnaseq.*.__Level_3__segmentation__seg.Level_3.*.tar[.]gz$")),
+    ## HMS archives end in 'segmentation__seg', MSKCC archives (e.g.
+    ## cgh_1x1m_g4447a) in 'segmentation_data_computation__seg'
+    CNACGH = list(.fhSpec(
+        "__Level_3__segmentation(_data_computation)?__seg[.]Level_3",
+        paste0("[.]Merge_cna__.*cgh.*__Level_3__",
+            "segmentation(_data_computation)?__seg[.]Level_3.*[.]tar[.]gz$"))),
+    Methylation = list(.fhSpec(
+        "__Level_3__within_bioassay_data_set_function__data.Level_3",
+        paste0("[.]Merge_methylation__.*.methylation.*.__Level_3__within",
+            "_bioassay_data_set_function__data.Level_3.*.tar[.]gz$"))),
+    mRNAArray = list(
+        .fhSpec("Merge_transcriptome__agilentg4502a_07",
+            paste0("[.]Merge_transcriptome__agilentg4502a_.*.__Level_3__unc",
+                "_lowess_normalization_gene_level__data.Level_3.*.tar[.]gz$")),
+        .fhSpec("Merge_transcriptome__ht_hg_u133a",
+            paste0("[.]Merge_transcriptome__ht_hg_u133a__.*.__Level_3__gene",
+                "_rma__data.Level_3.*.tar[.]gz$")),
+        .fhSpec("Merge_exon__huex_1_0_st_v2",
+            paste0("[.]Merge_exon__huex_1_0_st_v2__.*.__Level_3__quantile",
+                "_normalization_gene__data.Level_3.*.tar[.]gz$"))),
+    miRNAArray = list(.fhSpec("h_mirna_8x15k",
+        "[.]Merge_mirna__h_mirna_8x15k.*.data.Level_3.*.tar[.]gz$")),
+    RPPAArray = list(.fhSpec("rppa_core",
+        "[.]Merge_protein_exp.*.protein_normalization__data.Level_3.*.tar[.]gz$")),
+    Mutation = list(.fhSpec("Mutation_Packager_Calls",
+        "[.]Mutation_Packager_Calls[.]Level_3[.].*.tar[.]gz$")),
+    ## 'dataset' is the analysis cohort, e.g. 'ACC-TP'
+    GISTIC = list(.fhSpec("CopyNumber_Gistic2.Level_4",
+        "[.]CopyNumber_Gistic2[.]Level_4.*.tar[.]gz$"))
+)
+
+## Archive names for a data type in a Firehose listing ('doc')
+.archiveLinks <- function(type, dataset, doc) {
+    specs <- .FH_ARCHIVES[[type]]
+    if (is.null(specs))
+        stop("<internal> no Firehose archive pattern for '", type, "'")
+    links <- lapply(specs, function(sp)
+        .getLinks(sp[["filter"]], sp[["archive"]],
+            if (sp[["cohort"]]) dataset, doc))
+    unlist(links)
 }
 
 #' @importFrom utils setTxtProgressBar
@@ -442,7 +510,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (clinical)
     {
       #Search for links
-      plinks <- .getLinks(".Clinical_Pick_Tier1.Level_4","*.tar[.]gz$",NULL,doc)
+      plinks <- .archiveLinks("clinical", dataset, doc)
 
       for(i in trim(plinks))
       {
@@ -465,7 +533,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (RNASeqGene)
     {
       #Search for links
-      plinks <- .getLinks("Level_3__gene_expression__data.Level_3","*.Merge_rnaseq__.*._rnaseq__.*.tar[.]gz$",NULL,doc)
+      plinks <- .archiveLinks("RNASeqGene", dataset, doc)
 
       for(i in trim(plinks))
       {
@@ -485,7 +553,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (RNASeq2Gene)
     {
       #Search for links
-      plinks <- .getLinks("Level_3__RSEM_genes__data.Level_3","*.Merge_rnaseqv2__.*._rnaseqv2__.*.tar[.]gz$",NULL,doc)
+      plinks <- .archiveLinks("RNASeq2Gene", dataset, doc)
 
       for(i in trim(plinks))
       {
@@ -509,10 +577,10 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
       RNAseq2Norm <- match.arg(RNAseq2Norm)
       if (identical(RNAseq2Norm, "normalized_counts")) {
         searchName <- "[.]rnaseqv2__.*.__Level_3__RSEM_genes_normalized__data.data.txt$"
-        plinks <- .getLinks("Level_3__RSEM_genes_normalized__data.Level_3","*.Merge_rnaseqv2__.*._rnaseqv2__.*.tar[.]gz$",NULL,doc)
+        plinks <- .archiveLinks("RNASeq2GeneNorm", dataset, doc)
       } else {
         searchName <- paste0(".*\\.mRNAseq_", RNAseq2Norm, "\\.txt$")
-        plinks <- .getLinks("mRNAseq_Preprocess",".*\\.Level_3\\..*\\.tar\\.gz$",NULL,doc)
+        plinks <- .archiveLinks("mRNAseq_Preprocess", dataset, doc)
       }
       plinks <- stats::setNames(
         vapply(plinks, function(x)
@@ -550,7 +618,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (miRNASeqGene)
     {
       #Search for links
-      plinks <- .getLinks("Level_3__miR_gene_expression__data.Level_3","[.]Merge_mirnaseq__.*.hiseq_mirnaseq__.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("miRNASeqGene", dataset, doc)
       miRNAtype <- match.arg(miRNASeqGeneType)
 
       for(i in trim(plinks))
@@ -579,7 +647,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (CNASNP)
     {
       #Search for links
-      plinks <- .getLinks("Level_3__segmented_scna_hg19__seg.Level_3","[.]Merge_snp__.*.__Level_3__segmented_scna_hg19__seg.Level_3.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("CNASNP", dataset, doc)
 
       for(i in trim(plinks))
       {
@@ -602,7 +670,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (CNVSNP)
     {
       #Search for links
-      plinks <- .getLinks("Level_3__segmented_scna_minus_germline_cnv_hg19__seg.Level_3","[.]Merge_snp__.*.__Level_3__segmented_scna_minus_germline_cnv_hg19__seg.Level_3.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("CNVSNP", dataset, doc)
 
       for(i in trim(plinks))
       {
@@ -625,7 +693,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (CNASeq)
     {
       #Search for links
-      plinks <- .getLinks("__Level_3__segmentation__seg.Level_3","[.]Merge_cna__.*.dnaseq.*.__Level_3__segmentation__seg.Level_3.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("CNASeq", dataset, doc)
 
       for(i in trim(plinks))
       {
@@ -653,7 +721,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
       #Search for links
       ## HMS archives end in 'segmentation__seg', MSKCC archives (e.g.
       ## cgh_1x1m_g4447a) in 'segmentation_data_computation__seg'
-      plinks <- .getLinks(.CGH_LEVEL3, .CGH_ARCHIVE, dataset, doc)
+      plinks <- .archiveLinks("CNACGH", dataset, doc)
 
       dataLists <- list()
       listCount = 1
@@ -687,7 +755,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (Methylation)
     {
       #Search for links
-      plinks <- .getLinks("__Level_3__within_bioassay_data_set_function__data.Level_3","[.]Merge_methylation__.*.methylation.*.__Level_3__within_bioassay_data_set_function__data.Level_3.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("Methylation", dataset, doc)
 
       dataLists <- list()
       listCount = 1
@@ -735,11 +803,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (mRNAArray)
     {
       #Search for links
-      plinks1 <- .getLinks("Merge_transcriptome__agilentg4502a_07","[.]Merge_transcriptome__agilentg4502a_.*.__Level_3__unc_lowess_normalization_gene_level__data.Level_3.*.tar[.]gz$",dataset,doc)
-      plinks2 <- .getLinks("Merge_transcriptome__ht_hg_u133a","[.]Merge_transcriptome__ht_hg_u133a__.*.__Level_3__gene_rma__data.Level_3.*.tar[.]gz$",dataset,doc)
-      plinks3 <- .getLinks("Merge_exon__huex_1_0_st_v2","[.]Merge_exon__huex_1_0_st_v2__.*.__Level_3__quantile_normalization_gene__data.Level_3.*.tar[.]gz$",dataset,doc)
-
-      plinks = c(plinks1,plinks2,plinks3)
+      plinks <- .archiveLinks("mRNAArray", dataset, doc)
       plinks = unique(plinks[plinks != ""])
       dataLists <- list()
       listCount = 1
@@ -766,7 +830,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (miRNAArray)
     {
       #Search for links
-      plinks <- .getLinks("h_mirna_8x15k","[.]Merge_mirna__h_mirna_8x15k.*.data.Level_3.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("miRNAArray", dataset, doc)
       plinks = unique(plinks[plinks != ""])
 
       dataLists <- list()
@@ -794,7 +858,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (RPPAArray)
     {
       #Search for links
-      plinks <- .getLinks("rppa_core","[.]Merge_protein_exp.*.protein_normalization__data.Level_3.*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("RPPAArray", dataset, doc)
       plinks = unique(plinks[plinks != ""])
 
       dataLists <- list()
@@ -822,7 +886,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (Mutation)
     {
       #Search for links
-      plinks <- .getLinks("Mutation_Packager_Calls","[.]Mutation_Packager_Calls[.]Level_3[.].*.tar[.]gz$",dataset,doc)
+      plinks <- .archiveLinks("Mutation", dataset, doc)
       plinks = unique(plinks[plinks != ""])
 
       dataLists <- list()
@@ -868,8 +932,7 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     fh_url <- paste(fh_url, dset, "/", gistic2Date, "/", sep="")
     doc <- .files_from_html_table(fh_url)
     #Search for links
-    plinks <- .getLinks("CopyNumber_Gistic2.Level_4",
-        "[.]CopyNumber_Gistic2[.]Level_4.*.tar[.]gz$", dset, doc)
+    plinks <- .archiveLinks("GISTIC", dset, doc)
     for (ii in trim(plinks))
     {
       if (.checkFileSize(paste0(fh_url,ii),fileSizeLimit)) {
