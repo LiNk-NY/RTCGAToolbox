@@ -106,6 +106,31 @@
     key
 }
 
+## Single-table RNA-seq slots (RNASeqGene, RNASeq2Gene) hold one platform.
+## Some cohorts (e.g. COAD, UCEC) have Illumina GA and HiSeq archives, with
+## different samples and, for aliquots run on both, different values
+## (BUG-31). The first platform in 'platform' that the cohort has is used.
+.selectRNAseqPlatform <- function(links, platform, dataset, type) {
+    if (!length(links))
+        return(links)
+    plat <- sub("_.*", "", vapply(links, .archiveKey, character(1L),
+        USE.NAMES = FALSE))
+    use <- platform[platform %in% plat][1L]
+    if (is.na(use))
+        stop(dataset, " ", type, " data are available for ",
+            paste0("'", unique(plat), "'", collapse = ", "),
+            " only; see 'RNAseqPlatform'", call. = FALSE)
+    sel <- links[plat == use]
+    if (length(sel) != 1L)
+        stop("<internal> ", length(sel), " '", use, "' archives for ",
+            dataset, " ", type)
+    if (length(unique(plat)) > 1L)
+        message(dataset, " ", type, ": using '", use, "' data; also ",
+            "available: ", paste0("'", setdiff(unique(plat), use), "'",
+                collapse = ", "), " (see 'RNAseqPlatform')")
+    sel
+}
+
 ## 'archives': all archives of the data type; their keys must differ
 .cacheName <- function(type, archive, archives) {
     keys <- vapply(archives, .archiveKey, character(1L), USE.NAMES = FALSE)
@@ -417,10 +442,18 @@
 #' @param RNAseq2Norm RNAseq v2 data normalization method. (Default
 #'   normalized_count or one of RSEM_normalized_log2, raw_count,
 #'   scaled_estimate)
+#' @param RNAseqPlatform Character. Sequencing platform for `RNASeqGene` and
+#'   `RNASeq2Gene`, in order of preference: the first one available for the
+#'   cohort is used. Some cohorts (COAD, COADREAD, READ, STAD, STES, UCEC)
+#'   have data from both "illuminaga" and "illuminahiseq", with different
+#'   samples; the default, `c("illuminaga", "illuminahiseq")`, gives the
+#'   Illumina GA data for those cohorts and the only platform available for
+#'   all others. Use `"illuminahiseq"` for the HiSeq data. `RNASeq2GeneNorm`
+#'   always returns all platforms.
 #' @param GISTIC logical (default FALSE) processed copy number data
-#' @param forceDownload A logic (Default FALSE) key to force download
-#'   RTCGAToolbox every time. By default if you download files into your working
-#'   directory once than RTCGAToolbox using local files next time.
+#' @param forceDownload Logical (default FALSE). Download the files again
+#'   even when they are already in `destdir`. By default, files downloaded
+#'   before are read from `destdir`. Either way, the same data are returned.
 #' @param destdir Directory in which to store the resulting downloaded file.
 #'   Defaults to a cache directory given by `RTCGAToolbox:::.setCache()`.
 #' @param fileSizeLimit Files that are larger than set value (megabyte) won't be
@@ -456,12 +489,16 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     RNAseq2Norm = c(
       "normalized_counts", "RSEM_normalized_log2", "raw_counts", "scaled_estimate"
     ),
+    RNAseqPlatform = c("illuminaga", "illuminahiseq"),
     forceDownload=FALSE, destdir=.setCache(),
     fileSizeLimit=500, getUUIDs=FALSE, ...) {
   ## the UUID web service was retired in 2016 (BUG-15)
   if (isTRUE(getUUIDs))
       .lifeCycleArg("getFirehoseData", "getUUIDs = TRUE")
   #check input parameters
+  if (!is.character(RNAseqPlatform) || !length(RNAseqPlatform) ||
+      !all(RNAseqPlatform %in% c("illuminaga", "illuminahiseq")))
+      stop("'RNAseqPlatform' must be \"illuminaga\" and/or \"illuminahiseq\"")
   if (!is.character(dataset) || is.null(dataset) || !length(dataset) == 1 || nchar(dataset) < 2) {
       stop('Please set "dataset" parameter! You should specify one dataset name. Ex: dataset="BRCA"...')
       }
@@ -533,15 +570,18 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (RNASeqGene)
     {
       #Search for links
-      plinks <- .archiveLinks("RNASeqGene", dataset, doc)
-
-      for(i in trim(plinks))
+      plinks <- trim(.archiveLinks("RNASeqGene", dataset, doc))
+      ## one platform only (BUG-31); cached by archive, so neither
+      ## forceDownload nor an earlier call changes which data are returned
+      for(i in .selectRNAseqPlatform(plinks, RNAseqPlatform, dataset,
+          "RNASeqGene"))
       {
         if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
         {
           export.file <- .exportFiles(paste0(fh_url,i),dataset,"-RNAseqGene.tar.gz",
                        "[.]rnaseq__.*.__Level_3__gene_expression__data.data.txt$",
-                       TRUE,"-RNAseqGene.txt",FALSE,destdir,forceDownload,runDate)
+                       TRUE,.cacheName("RNAseqGene", i, plinks),FALSE,destdir,
+                       forceDownload,runDate)
           #Get selected type only
           resultClass@RNASeqGene <- .makeExprMat(export.file,RNAseqNorm,"RNAseq",mergeSize=1000,arrayData=FALSE)
           gc()
@@ -553,15 +593,16 @@ getFirehoseData <- function(dataset, runDate="20160128", gistic2Date="20160128",
     if (RNASeq2Gene)
     {
       #Search for links
-      plinks <- .archiveLinks("RNASeq2Gene", dataset, doc)
-
-      for(i in trim(plinks))
+      plinks <- trim(.archiveLinks("RNASeq2Gene", dataset, doc))
+      for(i in .selectRNAseqPlatform(plinks, RNAseqPlatform, dataset,
+          "RNASeq2Gene"))
       {
         if (.checkFileSize(paste0(fh_url,i),fileSizeLimit))
         {
           export.file <- .exportFiles(paste0(fh_url,i),dataset,"-RNAseq2Gene.tar.gz",
                                       "[.]rnaseqv2__.*.__Level_3__RSEM_genes__data.data.txt$",
-                                      TRUE,"-RNAseq2Gene.txt",FALSE,destdir,forceDownload,runDate)
+                                      TRUE,.cacheName("RNAseq2Gene", i, plinks),
+                                      FALSE,destdir,forceDownload,runDate)
           #Get selected type only
           resultClass@RNASeq2Gene <- .makeExprMat(export.file, RNAseqNorm, "RNAseq2",mergeSize=1000,arrayData=FALSE)
           gc()

@@ -71,7 +71,7 @@ test_that("each data type downloads exactly its archive (no decoys)", {
     ## extracted directories and tarballs are cleaned up
     expect_setequal(list.files(dest), c(
         "20160128-ACC-Clinical.txt",
-        "20160128-ACC-RNAseq2Gene.txt",
+        "20160128-ACC-RNAseq2Gene-illuminahiseq_rnaseqv2__unc_edu.txt",
         "20160128-ACC-RNAseq2GeneNorm-normalized_counts-illuminahiseq_rnaseqv2__unc_edu.txt",
         "20160128-ACC-read_count-miRNAseqGene.txt",
         "20160128-ACC-CNASNPHg19.txt",
@@ -333,6 +333,61 @@ test_that("list-slot cache files are named by archive, not position", {
     expect_identical(sort(list.files(dest)), c(
         "20160128-ACC-mRNAArray-agilentg4502a_07_3__unc_edu.txt",
         "20160128-ACC-mRNAArray-ht_hg_u133a__broad_mit_edu.txt"))
+})
+
+test_that("RNAseqPlatform picks one platform, whatever forceDownload", {
+    ## BUG-31: GA and HiSeq archives shared one cache file; by default the GA
+    ## file was read again for the HiSeq archive, and forceDownload = TRUE
+    ## returned the HiSeq data instead
+    fh2 <- build_fake_firehose()
+    gafile <- stats::setNames(
+        list(sub("197.00", "7.00", fx_rnaseq2, fixed = TRUE)),
+        "ACC.rnaseqv2__illuminaga_rnaseqv2__unc_edu__Level_3__RSEM_genes__data.data.txt")
+    ga <- make_fh_tarball(fh2$std, paste0(FH_PREFIX,
+        "Merge_rnaseqv2__illuminaga_rnaseqv2__unc_edu__Level_3__RSEM_genes__data",
+        FH_SUFFIX), gafile)
+    fh2$std_listing <- c(ga, fh2$std_listing)
+    cnt <- local_fake_firehose(fh2)
+    dest <- withr::local_tempdir()
+    a1bg <- function(x) unname(x@RNASeq2Gene["A1BG", BC[["S1"]]])
+    get <- function(...) suppressWarnings(do.call(getFirehoseData,
+        list(dataset = FH_DATASET, clinical = FALSE, RNASeq2Gene = TRUE,
+            destdir = dest, ...)))
+    ## default: GA, as returned before by default
+    msg <- function(m) paste(m, collapse = "")
+    expect_match(msg(capture_messages(x <- get())),
+        "using 'illuminaga' data; also available: 'illuminahiseq'")
+    expect_identical(a1bg(x), 7)
+    expect_length(cnt$downloads, 1L)
+    ## the same data from the cache and with forceDownload = TRUE
+    expect_identical(quiet(get()), x)
+    expect_identical(quiet(get(forceDownload = TRUE)), x)
+    ## HiSeq on request, from its own cache file
+    expect_match(msg(capture_messages(
+        y <- get(RNAseqPlatform = "illuminahiseq"))), "using 'illuminahiseq'")
+    expect_identical(a1bg(y), 197)
+    expect_identical(quiet(get(RNAseqPlatform = "illuminahiseq")), y)
+    expect_identical(sort(list.files(dest)), c(
+        "20160128-ACC-RNAseq2Gene-illuminaga_rnaseqv2__unc_edu.txt",
+        "20160128-ACC-RNAseq2Gene-illuminahiseq_rnaseqv2__unc_edu.txt"))
+    expect_length(cnt$downloads, 3L)
+})
+
+test_that("RNAseqPlatform with a single platform and invalid values", {
+    cnt <- local_fake_firehose(fh)
+    dest <- withr::local_tempdir()
+    ## a cohort with HiSeq only: the default falls back to it, no message
+    expect_no_message(x <- suppressWarnings(getFirehoseData(FH_DATASET,
+        clinical = FALSE, RNASeq2Gene = TRUE, destdir = dest)),
+        message = "also available")
+    expect_identical(dim(x@RNASeq2Gene), c(4L, 2L))
+    ## asking only for an unavailable platform is an error
+    expect_error(getFirehoseData(FH_DATASET, clinical = FALSE,
+        RNASeq2Gene = TRUE, destdir = dest, RNAseqPlatform = "illuminaga"),
+        "available for 'illuminahiseq' only")
+    for (bad in list("hiseq", character(0L), NA_character_, 1))
+        expect_error(getFirehoseData(FH_DATASET, destdir = dest,
+            RNAseqPlatform = bad), "'RNAseqPlatform' must be")
 })
 
 test_that(".archiveKey and .cacheName name cache files by archive", {

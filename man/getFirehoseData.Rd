@@ -27,6 +27,7 @@ getFirehoseData(
   RNAseqNorm = "raw_count",
   RNAseq2Norm = c("normalized_counts", "RSEM_normalized_log2", "raw_counts",
     "scaled_estimate"),
+  RNAseqPlatform = c("illuminaga", "illuminahiseq"),
   forceDownload = FALSE,
   destdir = .setCache(),
   fileSizeLimit = 500,
@@ -96,9 +97,18 @@ microarray.}
 normalized_count or one of RSEM_normalized_log2, raw_count,
 scaled_estimate)}
 
-\item{forceDownload}{A logic (Default FALSE) key to force download
-RTCGAToolbox every time. By default if you download files into your working
-directory once than RTCGAToolbox using local files next time.}
+\item{RNAseqPlatform}{Character. Sequencing platform for \code{RNASeqGene} and
+\code{RNASeq2Gene}, in order of preference: the first one available for the
+cohort is used. Some cohorts (COAD, COADREAD, READ, STAD, STES, UCEC)
+have data from both "illuminaga" and "illuminahiseq", with different
+samples; the default, \code{c("illuminaga", "illuminahiseq")}, gives the
+Illumina GA data for those cohorts and the only platform available for
+all others. Use \code{"illuminahiseq"} for the HiSeq data. \code{RNASeq2GeneNorm}
+always returns all platforms.}
+
+\item{forceDownload}{Logical (default FALSE). Download the files again
+even when they are already in \code{destdir}. By default, files downloaded
+before are read from \code{destdir}. Either way, the same data are returned.}
 
 \item{destdir}{Directory in which to store the resulting downloaded file.
 Defaults to a cache directory given by \code{RTCGAToolbox:::.setCache()}.}

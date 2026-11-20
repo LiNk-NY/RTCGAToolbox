@@ -38,6 +38,29 @@ ignored. Use `TCGAutils::barcodeToUUID()` instead; see
 
 ### Bug fixes and minor improvements
 
+* `getFirehoseData()` gains `RNAseqPlatform` to choose between Illumina GA
+and HiSeq data for `RNASeqGene` and `RNASeq2Gene`. Six cohorts have data
+from both platforms, with different samples:
+    * `RNASeq2Gene`: COAD, COADREAD, READ and UCEC
+    * `RNASeqGene`: STAD and STES
+
+  The default, `c("illuminaga", "illuminahiseq")`, keeps returning the GA
+data for these cohorts, as before. Use `RNAseqPlatform = "illuminahiseq"`
+to get the HiSeq data instead (e.g., for COAD, 328 HiSeq samples instead of
+191 GA samples). A message names the other platform when a cohort has
+both. Platforms are never mixed in one table, since sequencing platform is
+a major source of batch effects in these data. All other cohorts have one
+platform and are unaffected.
+
+* `getFirehoseData(RNASeqGene = TRUE)` and `getFirehoseData(RNASeq2Gene =
+TRUE)` no longer return different data with `forceDownload = TRUE` for the
+six cohorts above. Both platforms were cached under one file name, so the
+GA file was read again in place of the HiSeq archive, and
+`forceDownload = TRUE` returned the HiSeq data instead. These files are
+now cached by platform (e.g.,
+`<runDate>-<dataset>-RNAseq2Gene-illuminahiseq_rnaseqv2__unc_edu.txt`), so
+files cached by earlier versions are downloaded again.
+
 * `getFirehoseData()` now names the cached files of the Methylation,
 mRNAArray, miRNAArray, RPPAArray and RNASeq2GeneNorm data types after
 their archive (e.g., `<runDate>-<dataset>-Methylation-humanmethylation450__jhu_usc_edu.txt`)
